@@ -1,0 +1,9 @@
+{
+  "name": "pati",
+  "version": "1.0.0",
+  "dependencies": {
+    "browserify": "^16.2.3",
+    "tsify": "^4.0.1",
+    "@types/webgl2": "^0.0.4"
+  }
+}
