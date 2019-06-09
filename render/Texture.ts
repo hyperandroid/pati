@@ -9,43 +9,62 @@
 export type TextureInitializerElement = HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData | ImageBitmap;
 
 export interface TextureInitializer {
-	target:	number;				//	TEXTURE_1D, TEXTURE_2D, ...
-	width: number;
-	height: number;
-	internal_format: number;	// color components in texture
-	format: number;
-	type: number;				// BYTE ?
-	level?: number;				// mipmap level
+	target?:	number;			//	defaults to TEXTURE_2D
+	width?: number;
+	height?: number;
+	internal_format?: number;	// color components in texture. defaults to RGBA8
+	format?: number;			// internal format. defaults to RGBA8
+	type?: number;				// defaults to UNSIGNED_BYTE
+	level?: number;				// mipmap level. defaults to 0.
 	pixels?: ArrayBufferView;
 	element?: TextureInitializerElement;
 
-	filter: number;				// NEAREST | LINEAR | NEAREST_MIPMAP_NEAREST | ...
-	wrap_mode: number;
-
-	name: string;
+	filter?: number;			// defaults to LINEAR (NEAREST | LINEAR | NEAREST_MIPMAP_NEAREST | ...)
+	wrap_mode?: number;			// defaults to CLAMP_TO_EDGE
 }
 
+/**
+ * A general texture class.
+ * It honors bitmaps that will be constructed based on the TextureInitialized filter parameter.
+ */
 export default class Texture {
 
 	glTexture_: WebGLTexture = null;
-	name: string = null;
 	width = -1;
 	height = -1;
 	target = -1;
 
-	constructor() {
+	private constructor() {
 	}
 
-	initialize(gl: WebGL2RenderingContext, info: TextureInitializer) {
+	static initialize(gl: WebGL2RenderingContext, info: TextureInitializer) : Texture {
 
-		this.glTexture_ = gl.createTexture();
+		if (info.target===void 0) {
+			info.target = gl.TEXTURE_2D;
+		}
 
-		gl.bindTexture(info.target, gl);
+		const glTexture_ = gl.createTexture();
+
+		gl.bindTexture(info.target, glTexture_);
 
 		const arrayView: ArrayBufferView = info.pixels!==void 0 ? info.pixels : null;
 		const element: TextureInitializerElement = info.element!==void 0 ? info.element : null;
 
+		if (info.internal_format===void 0) {
+			info.internal_format = gl.RGBA;
+		}
+
+		if (info.format===void 0) {
+			info.format = info.internal_format;
+		}
+
+		if (info.type===void 0) {
+			info.type = gl.UNSIGNED_BYTE;
+		}
+
 		if (element!==null) {
+			info.width = element.width;
+			info.height = element.height;
 			gl.texImage2D(
 				info.target,
 				info.level || 0,
@@ -69,11 +88,19 @@ export default class Texture {
 				arrayView);
 		}
 
-		this.name = info.name;
-		this.width = info.width;
-		this.height = info.height;
-		this.target = info.target;
+		const texture = new Texture();
 
+		texture.glTexture_ = glTexture_;
+		texture.width = info.width;
+		texture.height = info.height;
+		texture.target = info.target;
+
+		// default filter if not present
+		if (info.filter===void 0) {
+			info.filter = gl.LINEAR;
+		}
+
+		// generate mipmaps if needed
 		if (info.filter===gl.NEAREST_MIPMAP_NEAREST ||
 			info.filter===gl.NEAREST_MIPMAP_LINEAR ||
 			info.filter===gl.LINEAR_MIPMAP_NEAREST ||
@@ -85,8 +112,14 @@ export default class Texture {
 		gl.texParameteri(info.target, gl.TEXTURE_MIN_FILTER, info.filter);
 		gl.texParameteri(info.target, gl.TEXTURE_MAG_FILTER, info.filter);
 
+		// default wrap mode
+		if (info.wrap_mode===void 0) {
+			info.wrap_mode = gl.CLAMP_TO_EDGE;
+		}
 		gl.texParameteri(info.target, gl.TEXTURE_WRAP_S, info.wrap_mode);
 		gl.texParameteri(info.target, gl.TEXTURE_WRAP_T, info.wrap_mode);
+
+		return texture;
 	}
 
 	bindAsRenderTarget() {
@@ -99,5 +132,10 @@ export default class Texture {
 
 	dispose(gl: WebGL2RenderingContext) {
 		gl.deleteTexture(this.glTexture_);
+	}
+
+	enableAsUnit(gl: WebGL2RenderingContext, unit: number) {
+		gl.activeTexture(gl.TEXTURE0 + unit);
+		gl.bindTexture(gl.TEXTURE_2D, this.glTexture_);
 	}
 }

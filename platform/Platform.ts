@@ -6,12 +6,8 @@ export default class Platform {
 
 	static glContext: WebGL2RenderingContext = null;
 
-	static initialize() {
+	static initialize(w: number, h: number) {
 		const c = document.createElement('canvas');
-
-		const w = window.innerWidth;
-		const h = window.innerHeight;
-
 		c.width = w;
 		c.height = h;
 
