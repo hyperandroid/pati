@@ -300,16 +300,30 @@ export default class Matrix4 {
 		return out;
 	}
 
-	static rotateX(out: Float32Array, m: Float32Array, angle: number) {
-	}
-
-	static rotateY(out: Float32Array, m: Float32Array, angle: number) {
-	}
-
-	static rotateZ(out: Float32Array, m: Float32Array, angle: number) {
-	}
-
 	static rotate(out: Float32Array, m: Float32Array, xy: number, xz: number, yz: number) {
+		const sxy= Math.sin( xy );
+		const sxz= Math.sin( xz );
+		const syz= Math.sin( yz );
+		const cxy= Math.cos( xy );
+		const cxz= Math.cos( xz );
+		const cyz= Math.cos( yz );
+
+		out[  0 ]=cxz*cxy;
+		out[  1 ]=-cxz*sxy;
+		out[  2 ]=sxz;
+		out[  3 ]= 0;
+		out[  4 ]=syz*sxz*cxy+sxy*cyz;
+		out[  5 ]=cyz*cxy-syz*sxz*sxy;
+		out[  6 ]=-syz*cxz;
+		out[  7 ]= 0;
+		out[  8 ]=syz*sxy-cyz*sxz*cxy;
+		out[  9 ]=cyz*sxz*sxy+syz*cxy;
+		out[  10]=cyz*cxz;
+		out[ 11 ]= 0;
+		out[ 12 ]= 0;
+		out[ 13 ]= 0;
+		out[ 14 ]= 0;
+		out[ 15 ]= 1;
 	}
 
 	/**

@@ -18,11 +18,12 @@ export default class TextureShader extends Shader {
 				
 				uniform mat4 uProjection;
 				uniform mat4 uModelView;
+				uniform mat4 uModel;
 				
 				out vec2 texturePos;
 
 				void main() {
-					gl_Position = uProjection * uModelView * vec4(aPosition, 1.0);
+					gl_Position = uProjection * uModelView * uModel * vec4(aPosition, 1.0);
 					texturePos = aTexture;
 				}
 			`,
@@ -40,7 +41,7 @@ export default class TextureShader extends Shader {
 				}
 			`,
 			attributes : ["aPosition"],
-			uniforms: ["uProjection", "uModelView"]
+			uniforms: ["uProjection", "uModelView", "uModel"]
 		});
 
 		this.setMatrix4fv("uProjection", false, Matrix4.create());

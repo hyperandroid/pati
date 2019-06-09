@@ -1,8 +1,20 @@
+import Vector3 from "../math/Vector3";
+import Matrix4 from "../math/Matrix4";
+
 export default class Mesh {
 
 	vao : WebGLVertexArrayObject;
 	indexed = false;
 	numVertices = 0;
+
+	position = Vector3.createFromCoords(0,0,0);
+	rxy = 0;
+	rxz = 0;
+	ryz = 0;
+	scale = Vector3.createFromCoords(1,1,1);
+
+	transformDirty = true;
+	transform = Matrix4.create();
 
 	constructor() {
 
@@ -52,7 +64,7 @@ export default class Mesh {
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferIndex);
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
 			m.indexed = true;
-			m.numVertices = (index.length/3)|0;
+			m.numVertices = index.length;
 		} else {
 			m.numVertices = (vertices.length /3)|0;
 		}
@@ -64,6 +76,20 @@ export default class Mesh {
 		return m;
 	}
 
+	transformMatrix() : Float32Array {
+
+		// transformation needs rebuild
+		if (this.transformDirty) {
+			Matrix4.identity(this.transform);
+			Matrix4.rotate(this.transform, this.transform, this.rxy, this.rxz, this.ryz);
+			Matrix4.scale(this.transform, this.transform, this.scale);
+			Matrix4.translate(this.transform, this.transform, this.position);
+			this.transformDirty = false;
+		}
+
+		return this.transform;
+	}
+
 	render(gl: WebGL2RenderingContext) {
 		gl.bindVertexArray(  this.vao );
 		if (this.indexed) {
@@ -71,5 +97,12 @@ export default class Mesh {
 		} else {
 			gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
 		}
+	}
+
+	euler(xy: number, xz: number, yz: number) {
+		this.rxy = xy;
+		this.rxz = xz;
+		this.ryz = yz;
+		this.transformDirty = true;
 	}
 }
