@@ -15,10 +15,10 @@ export default class TextureShader extends Shader {
 
 				layout(location = 0) in vec3 aPosition;
 				layout(location = 1) in vec2 aTexture;
+				layout(location = 2) in mat4 uModel;
 				
 				uniform mat4 uProjection;
 				uniform mat4 uModelView;
-				uniform mat4 uModel;
 				
 				out vec2 texturePos;
 
@@ -41,7 +41,7 @@ export default class TextureShader extends Shader {
 				}
 			`,
 			attributes : ["aPosition"],
-			uniforms: ["uProjection", "uModelView", "uModel"]
+			uniforms: ["uProjection", "uModelView"]
 		});
 
 		this.setMatrix4fv("uProjection", false, Matrix4.create());

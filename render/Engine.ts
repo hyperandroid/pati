@@ -5,6 +5,9 @@ import Mesh from "./Mesh";
 import Matrix4 from "../math/Matrix4";
 import Texture from "./Texture";
 import TextureShader from "./shader/TextureShader";
+import Vector3 from "../math/Vector3";
+
+const N = 128;
 
 export default class Engine {
 
@@ -21,6 +24,12 @@ export default class Engine {
 
 	private time = 0;
 
+	private matrices = new Float32Array(16*N*N);
+	private matrix = Matrix4.create();
+	private position = Vector3.create();
+	private rotation= Vector3.create();
+	private scale = Vector3.createFromCoords(1,1,1);
+
 	constructor(w: number, h: number) {
 		Platform.initialize(w, h);
 
@@ -30,7 +39,7 @@ export default class Engine {
 		this.width = w;
 		this.height = h;
 
-		this.perspective = Matrix4.perspective(this.perspective, 180, w / h, .01, 1000);
+		this.perspective = Matrix4.perspective(this.perspective, 70*Math.PI/180, w / h, .01, 1000);
 
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
@@ -44,29 +53,24 @@ export default class Engine {
 				1, 1, -1,
 				-1, 1, -1,
 				-1, 1, 1,
-				1, 1, 1
+				1, 1, 1,
 			],
 			[
-				0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0,
-				0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
-				0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
-				0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
-				0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1,
-				0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1
+				0, 0, 1, 1, 0,1, 1,0, 0,1, 1,0, 0,0, 1,1
 			],
 			[
-				0, 2, 1, 3, 2, 0,
+				2, 1, 0, 3, 2, 0,
 				3, 0, 4, 7, 3, 4,
 				0, 1, 5, 4, 0, 5,
 				1, 2, 6, 5, 1, 6,
 				2, 3, 7, 6, 2, 7,
-				4, 5, 6, 7, 4, 6
+				4, 5, 6, 7, 4, 6,
 			]);
 
 		Matrix4.lookAt(
 			this.camera,
-			new Float32Array([0, 0, 3]),
-			new Float32Array([0, 0, 0]),
+			new Float32Array([0, 25, 27]),
+			new Float32Array([0, 0, -20]),
 			new Float32Array([0, 1, 0]));
 
 		this.initializeGraphics();
@@ -98,12 +102,32 @@ export default class Engine {
 		const cube = this.mesh["cube"];
 
 		ns.setMatrix4fv("uModelView", false, this.camera);
-		ns.setMatrix4fv("uModel", false, cube.transformMatrix());
 
-		cube.render(this.gl);
-		const t = (this.time%5000)/2500.0*Math.PI;
-		const t7 = (this.time%35000)/17500.0*Math.PI;
-		cube.euler(t, t7, 0);
+		for(let i = 0; i < N*N; i++ ) {
+			const row = (i/N)|0;
+			const col = i%N;
+
+			const tt = 5000;
+			const t = ((this.time%tt))/(tt/2)*Math.PI;
+			Vector3.set(this.position, (col-((N-1)/2))*3, 10*Math.sin(2*Math.PI/N*col + t)*Math.cos(2*Math.PI/N*row + t), -row*3);
+			Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
+			this.matrices.set(
+				Matrix4.modelMatrix(
+					this.matrix,
+					this.position,
+					this.rotation,
+					this.scale),
+				i*16);
+		}
+
+		const angle = ((this.time%20000))/10000*Math.PI;
+		Matrix4.lookAt(
+			this.camera,
+			new Float32Array([30*Math.cos(angle), 25+8*Math.sin(angle), 30*Math.sin(angle)]),
+			new Float32Array([0, 0, -20]),
+			new Float32Array([0, 1, 0]));
+
+		cube.renderInstanced(this.gl, this.matrices, N*N);
 
 		this.time += delta;
 	}

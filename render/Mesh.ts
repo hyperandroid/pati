@@ -8,13 +8,15 @@ export default class Mesh {
 	numVertices = 0;
 
 	position = Vector3.createFromCoords(0,0,0);
-	rxy = 0;
-	rxz = 0;
-	ryz = 0;
+	rotation = Vector3.createFromCoords(0,0,0);
 	scale = Vector3.createFromCoords(1,1,1);
 
 	transformDirty = true;
 	transform = Matrix4.create();
+
+	instanceCount = 1;
+
+	instancedTransform : WebGLBuffer = null;
 
 	constructor() {
 
@@ -36,7 +38,7 @@ export default class Mesh {
 	 * @param uv an array of vertex data. Contains x,y,z info per vertex.
 	 * @param index optional array of index data.
 	 */
-	static from(gl: WebGL2RenderingContext, vertices: number[], uv: number[], index?: number[]) : Mesh {
+	static from(gl: WebGL2RenderingContext, vertices: number[], uv: number[], index?: number[], instanceCount?: number) : Mesh {
 
 		const m = new Mesh();
 
@@ -59,6 +61,25 @@ export default class Mesh {
 		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, 0);
 		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 2*4, 4*vertices.length);
 
+		// warn: use layout location 2 in shader for model transform.
+		gl.enableVertexAttribArray(2);
+		instanceCount = instanceCount || 1;
+
+		const instancedModelTransform = new Float32Array(16*instanceCount);
+		const glInstancedModelTransformBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, glInstancedModelTransformBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, instancedModelTransform, gl.DYNAMIC_DRAW);
+		m.instancedTransform = glInstancedModelTransformBuffer;
+
+		gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 16*4, 0);
+		gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 16*4, 16);
+		gl.vertexAttribPointer(4, 4, gl.FLOAT, false, 16*4, 32);
+		gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 16*4, 48);
+		gl.vertexAttribDivisor(2,1);
+		gl.vertexAttribDivisor(3,1);
+		gl.vertexAttribDivisor(4,1);
+		gl.vertexAttribDivisor(5,1);
+
 		if (index!==void 0) {
 			const bufferIndex = gl.createBuffer();
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferIndex);
@@ -71,6 +92,7 @@ export default class Mesh {
 
 		gl.bindVertexArray(null);
 
+		m.instanceCount = instanceCount;
 		m.vao = vao;
 
 		return m;
@@ -80,10 +102,7 @@ export default class Mesh {
 
 		// transformation needs rebuild
 		if (this.transformDirty) {
-			Matrix4.identity(this.transform);
-			Matrix4.rotate(this.transform, this.transform, this.rxy, this.rxz, this.ryz);
-			Matrix4.scale(this.transform, this.transform, this.scale);
-			Matrix4.translate(this.transform, this.transform, this.position);
+			Matrix4.modelMatrix(this.transform, this.position, this.rotation, this.scale);
 			this.transformDirty = false;
 		}
 
@@ -91,18 +110,42 @@ export default class Mesh {
 	}
 
 	render(gl: WebGL2RenderingContext) {
-		gl.bindVertexArray(  this.vao );
-		if (this.indexed) {
-			gl.drawElements(gl.TRIANGLES, this.numVertices, gl.UNSIGNED_SHORT, 0);
+
+		this.transformMatrix();
+		this.renderInstanced(gl, this.transform, 1);
+	}
+
+	renderInstanced(gl: WebGL2RenderingContext, locals: Float32Array, numInstances: number) {
+		gl.enableVertexAttribArray(0);
+		gl.enableVertexAttribArray(1);
+		gl.enableVertexAttribArray(2);
+		gl.enableVertexAttribArray(3);
+		gl.enableVertexAttribArray(4);
+		gl.enableVertexAttribArray(5);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.instancedTransform);
+
+		// check for locals info room in current instance info buffer.
+		if (numInstances>this.instanceCount) {
+			gl.bufferData(gl.ARRAY_BUFFER, locals, gl.STATIC_DRAW);
+			this.instanceCount = numInstances;
 		} else {
-			gl.drawArrays(gl.TRIANGLES, 0, this.numVertices);
+			gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
+		}
+
+		gl.bindVertexArray(  this.vao );
+
+		if (this.indexed) {
+			gl.drawElementsInstanced(gl.TRIANGLES, this.numVertices, gl.UNSIGNED_SHORT, 0, numInstances);
+		} else {
+			gl.drawArraysInstanced(gl.TRIANGLES, 0, this.numVertices, numInstances);
 		}
 	}
 
-	euler(xy: number, xz: number, yz: number) {
-		this.rxy = xy;
-		this.rxz = xz;
-		this.ryz = yz;
+	euler(x: number, y: number, z: number) {
+		this.rotation[0] = x;
+		this.rotation[1] = y;
+		this.rotation[2] = z;
 		this.transformDirty = true;
 	}
 }

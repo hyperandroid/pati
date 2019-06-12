@@ -300,7 +300,12 @@ export default class Matrix4 {
 		return out;
 	}
 
-	static rotate(out: Float32Array, m: Float32Array, xy: number, xz: number, yz: number) {
+	static rotate(out: Float32Array, m: Float32Array, euler: Vector3) {
+
+		const xy = euler[2];
+		const xz = euler[1];
+		const yz = euler[0];
+
 		const sxy= Math.sin( xy );
 		const sxz= Math.sin( xz );
 		const syz= Math.sin( yz );
@@ -308,22 +313,24 @@ export default class Matrix4 {
 		const cxz= Math.cos( xz );
 		const cyz= Math.cos( yz );
 
-		out[  0 ]=cxz*cxy;
-		out[  1 ]=-cxz*sxy;
-		out[  2 ]=sxz;
-		out[  3 ]= 0;
-		out[  4 ]=syz*sxz*cxy+sxy*cyz;
-		out[  5 ]=cyz*cxy-syz*sxz*sxy;
-		out[  6 ]=-syz*cxz;
-		out[  7 ]= 0;
-		out[  8 ]=syz*sxy-cyz*sxz*cxy;
-		out[  9 ]=cyz*sxz*sxy+syz*cxy;
-		out[  10]=cyz*cxz;
-		out[ 11 ]= 0;
-		out[ 12 ]= 0;
-		out[ 13 ]= 0;
-		out[ 14 ]= 0;
-		out[ 15 ]= 1;
+		m0[  0 ]=cxz*cxy;
+		m0[  1 ]=-cxz*sxy;
+		m0[  2 ]=sxz;
+		m0[  3 ]= 0;
+		m0[  4 ]=syz*sxz*cxy+sxy*cyz;
+		m0[  5 ]=cyz*cxy-syz*sxz*sxy;
+		m0[  6 ]=-syz*cxz;
+		m0[  7 ]= 0;
+		m0[  8 ]=syz*sxy-cyz*sxz*cxy;
+		m0[  9 ]=cyz*sxz*sxy+syz*cxy;
+		m0[  10]=cyz*cxz;
+		m0[ 11 ]= 0;
+		m0[ 12 ]= 0;
+		m0[ 13 ]= 0;
+		m0[ 14 ]= 0;
+		m0[ 15 ]= 1;
+
+		Matrix4.mul(out, m, m0);
 	}
 
 	/**
@@ -360,4 +367,15 @@ export default class Matrix4 {
 
 		return ret;
 	}
+
+	static modelMatrix(out: Float32Array, position: Float32Array, rotation: Float32Array, scale: Float32Array) : Float32Array {
+		Matrix4.identity(out);
+		Matrix4.translate(out, out, position);
+		Matrix4.rotate(out, out, rotation);
+		Matrix4.scale(out, out, scale);
+
+		return out;
+	}
 }
+
+const m0 = Matrix4.create();
