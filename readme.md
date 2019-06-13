@@ -5,7 +5,7 @@ They teach me everyday lots of things. So makes sense to name this project Pati,
 
 # How to
 
-npm install
-./build.sh
++ npm install
++ ./build.sh
 
 open index.html from a local web server.
