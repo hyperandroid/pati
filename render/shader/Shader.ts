@@ -1,3 +1,5 @@
+import Engine from "../Engine";
+
 export interface ShaderInitializer {
 	gl: WebGL2RenderingContext;
     vertex: string|string[],
@@ -5,6 +7,17 @@ export interface ShaderInitializer {
     uniforms: string[],
     attributes: string[],
     defines?: {[key:string]:string}
+}
+
+export interface ShaderVAOInfo {
+	vao: WebGLVertexArrayObject;
+	geometryBuffer: WebGLBuffer;
+	uvBuffer: WebGLBuffer;
+	indexBuffer: WebGLBuffer;
+	instanceBuffer: WebGLBuffer;
+	indexedGeometry: boolean;
+	vertexCount: number;
+	instanceCount: number;
 }
 
 /**
@@ -142,4 +155,6 @@ export default abstract class Shader {
 	setMatrix4fv(name: string, transpose: boolean, matrix: Float32Array, srcOffset?: number, srcLength?: number) {
     	this._gl.uniformMatrix4fv(this._uniforms[name], transpose, matrix, srcOffset, srcLength);
 	}
+
+	abstract render(e: Engine, info: ShaderVAOInfo);
 }

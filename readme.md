@@ -9,3 +9,7 @@ They teach me everyday lots of things. So makes sense to name this project Pati,
 + ./build.sh
 
 open index.html from a local web server.
+
+# lessons learnt
+
++ when using VBO and attribute divisor have been set, then must always be specified. System does not assume if not set once another attibute has been assigned a divisor.

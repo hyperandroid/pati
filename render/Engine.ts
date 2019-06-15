@@ -10,6 +10,7 @@ import SkyboxShader from "./shader/SkyboxShader";
 import {CubeIndexed} from "./geometry/CubeIndexed";
 import RenderComponent from "./RenderComponent";
 import Skybox from "./geometry/Skybox";
+import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 
 const N = 256;
 
@@ -48,8 +49,9 @@ export default class Engine {
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
 		this.shader["skybox"] = new SkyboxShader(gl);
+		// this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
 
-		this.mesh["cube"] = CubeIndexed(gl);
+		this.mesh["cube"] = new CubeIndexed(gl);
 		this.mesh["skybox"] = new Skybox(gl);
 
 		this.camera.setup(
@@ -117,15 +119,7 @@ export default class Engine {
 		this.gl.viewport(0, 0, this.width, this.height);
 		this.camera.lookAt();
 
-		const ns = this.shader["texture"];
-		ns.use();
-		ns.setMatrix4fv("uProjection", false, this.perspective);
-		this.texture["texture0"].enableAsUnit(this.gl, 0);
-		ns.set1I("uTextureSampler", 0);
-		ns.setMatrix4fv("uModelView", false, this.camera.matrix);
 		this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
-		ns.notUse();
-
 		this.mesh["skybox"].render(this);
 
 		this.time += delta;

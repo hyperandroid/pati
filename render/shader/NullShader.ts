@@ -1,5 +1,6 @@
-import Shader from "./Shader";
+import Shader, {ShaderVAOInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
+import Engine from "../Engine";
 
 /**
  * just draw geometry in a plain pink color
@@ -38,5 +39,8 @@ export default class NullShader extends Shader {
 
 		this.setMatrix4fv("uProjection", false, Matrix4.create());
 		this.setMatrix4fv("uModelView", false, Matrix4.create());
+	}
+
+	render(e: Engine, info: ShaderVAOInfo) {
 	}
 }
