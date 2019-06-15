@@ -112,7 +112,7 @@ export default abstract class Shader {
     notUse() {
     	this._gl.useProgram(null);
 		Object.keys(this._attributes).forEach(k =>
-			this._gl.enableVertexAttribArray(this._attributes[k]));
+			this._gl.disableVertexAttribArray(this._attributes[k]));
 	}
 
     set1F(name: string, v: number) {

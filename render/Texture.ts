@@ -17,7 +17,7 @@ export interface TextureInitializer {
 	type?: number;				// defaults to UNSIGNED_BYTE
 	level?: number;				// mipmap level. defaults to 0.
 	pixels?: ArrayBufferView;
-	element?: TextureInitializerElement;
+	element?: TextureInitializerElement|TextureInitializerElement[];
 
 	filter?: number;			// defaults to LINEAR (NEAREST | LINEAR | NEAREST_MIPMAP_NEAREST | ...)
 	wrap_mode?: number;			// defaults to CLAMP_TO_EDGE
@@ -37,6 +37,18 @@ export default class Texture {
 	private constructor() {
 	}
 
+	static initializeCubeMap(gl: WebGL2RenderingContext, elements: HTMLImageElement[]) : Texture {
+		return Texture.initialize(gl,
+			{
+				target: gl.TEXTURE_CUBE_MAP,
+				element: elements,
+				wrap_mode: gl.CLAMP_TO_EDGE,
+				filter: gl.LINEAR,
+				internal_format: gl.RGBA,
+				format: gl.RGBA
+			});
+	}
+
 	static initialize(gl: WebGL2RenderingContext, info: TextureInitializer) : Texture {
 
 		if (info.target===void 0) {
@@ -48,7 +60,6 @@ export default class Texture {
 		gl.bindTexture(info.target, glTexture_);
 
 		const arrayView: ArrayBufferView = info.pixels!==void 0 ? info.pixels : null;
-		const element: TextureInitializerElement = info.element!==void 0 ? info.element : null;
 
 		if (info.internal_format===void 0) {
 			info.internal_format = gl.RGBA;
@@ -62,19 +73,45 @@ export default class Texture {
 			info.type = gl.UNSIGNED_BYTE;
 		}
 
-		if (element!==null) {
-			info.width = element.width;
-			info.height = element.height;
-			gl.texImage2D(
-				info.target,
-				info.level || 0,
-				info.internal_format,
-				info.width,
-				info.height,
-				0,
-				info.format,
-				info.type,
-				element);
+		if (info.element!==null) {
+
+			if (Array.isArray(info.element)) {
+				if (info.target===gl.TEXTURE_CUBE_MAP) {
+
+					info.element.forEach((img, index) => {
+						gl.texImage2D(
+							gl.TEXTURE_CUBE_MAP_POSITIVE_X + index,
+							0,
+							info.internal_format,
+							img.width,
+							img.height,
+							0,
+							info.format,
+							info.type,
+							img);
+					});
+				} else {
+					throw(new Error("Texture type bad: array of images, not cubemap"));
+				}
+
+			} else {
+
+				// not array
+				const element = info.element;
+
+				info.width = element.width;
+				info.height = element.height;
+				gl.texImage2D(
+					info.target,
+					info.level || 0,
+					info.internal_format,
+					info.width,
+					info.height,
+					0,
+					info.format,
+					info.type,
+					element);
+			}
 		} else {
 			gl.texImage2D(
 				info.target,
@@ -119,6 +156,10 @@ export default class Texture {
 		gl.texParameteri(info.target, gl.TEXTURE_WRAP_S, info.wrap_mode);
 		gl.texParameteri(info.target, gl.TEXTURE_WRAP_T, info.wrap_mode);
 
+		if (info.target===gl.TEXTURE_CUBE_MAP) {
+			gl.texParameteri(info.target, gl.TEXTURE_WRAP_R, info.wrap_mode);
+		}
+
 		return texture;
 	}
 
@@ -136,6 +177,7 @@ export default class Texture {
 
 	enableAsUnit(gl: WebGL2RenderingContext, unit: number) {
 		gl.activeTexture(gl.TEXTURE0 + unit);
-		gl.bindTexture(gl.TEXTURE_2D, this.glTexture_);
+		gl.bindTexture(this.target, this.glTexture_);
 	}
+
 }

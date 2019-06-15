@@ -5,6 +5,7 @@
 export default class Platform {
 
 	static glContext: WebGL2RenderingContext = null;
+	static canvas: HTMLCanvasElement = null;
 
 	static initialize(w: number, h: number) {
 		const c = document.createElement('canvas');
@@ -22,6 +23,7 @@ export default class Platform {
 
 		if (ctx) {
 			Platform.glContext = ctx;
+			Platform.canvas = c;
 		} else {
 			alert("Webgl2 enabled please.");
 		}

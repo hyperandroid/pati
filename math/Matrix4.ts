@@ -140,6 +140,23 @@ export default class Matrix4 {
 		return out;
 	}
 
+	static viewMatrix(out: Float32Array, min: Float32Array) : Float32Array {
+		Matrix4.identity(out);
+		out[0] = min[0];
+		out[1] = min[1];
+		out[2] = min[2];
+
+		out[4] = min[4];
+		out[5] = min[5];
+		out[6] = min[6];
+
+		out[8] = min[8];
+		out[9] = min[9];
+		out[10] = min[10];
+
+		return out;
+	}
+
 	static lookAt(out: Float32Array, eye: Float32Array, lookAt: Float32Array, up: Float32Array) : Float32Array {
 
 		const eyex = eye[0];

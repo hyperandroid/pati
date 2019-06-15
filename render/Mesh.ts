@@ -1,7 +1,9 @@
 import Vector3 from "../math/Vector3";
 import Matrix4 from "../math/Matrix4";
+import RenderComponent from "./RenderComponent";
+import Engine from "./Engine";
 
-export default class Mesh {
+export default class Mesh implements RenderComponent {
 
 	vao : WebGLVertexArrayObject;
 	indexed = false;
@@ -46,9 +48,9 @@ export default class Mesh {
 		gl.bindVertexArray(vao);
 
 		// warn: use layout location 0 in shader for geometry.
-		gl.enableVertexAttribArray(0);
+		// gl.enableVertexAttribArray(0);
 		// warn: use layout location 1 in shader for texture data.
-		gl.enableVertexAttribArray(1);
+		// gl.enableVertexAttribArray(1);
 
 		const allGeometryAndUVDataBuffer = new Float32Array(vertices.length + uv.length);
 		allGeometryAndUVDataBuffer.set(vertices);
@@ -58,11 +60,20 @@ export default class Mesh {
 		gl.bindBuffer(gl.ARRAY_BUFFER, bufferGeometryAndUV);
 		gl.bufferData(gl.ARRAY_BUFFER, allGeometryAndUVDataBuffer, gl.STATIC_DRAW);
 
+		gl.enableVertexAttribArray(0);
+		gl.enableVertexAttribArray(1);
+		gl.enableVertexAttribArray(2);
+		gl.enableVertexAttribArray(3);
+		gl.enableVertexAttribArray(4);
+		gl.enableVertexAttribArray(5);
+
 		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, 0);
 		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 2*4, 4*vertices.length);
+		gl.vertexAttribDivisor(0,0);
+		gl.vertexAttribDivisor(1,0);
 
 		// warn: use layout location 2 in shader for model transform.
-		gl.enableVertexAttribArray(2);
+		// gl.enableVertexAttribArray(2);
 		instanceCount = instanceCount || 1;
 
 		const instancedModelTransform = new Float32Array(16*instanceCount);
@@ -109,37 +120,35 @@ export default class Mesh {
 		return this.transform;
 	}
 
-	render(gl: WebGL2RenderingContext) {
+	render(e: Engine) {
 
 		this.transformMatrix();
-		this.renderInstanced(gl, this.transform, 1);
+		this.renderInstanced(e, this.transform, 1);
 	}
 
-	renderInstanced(gl: WebGL2RenderingContext, locals: Float32Array, numInstances: number) {
-		gl.enableVertexAttribArray(0);
-		gl.enableVertexAttribArray(1);
-		gl.enableVertexAttribArray(2);
-		gl.enableVertexAttribArray(3);
-		gl.enableVertexAttribArray(4);
-		gl.enableVertexAttribArray(5);
+	renderInstanced(e: Engine, locals: Float32Array, numInstances: number) {
+
+		const gl = e.gl;
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.instancedTransform);
 
 		// check for locals info room in current instance info buffer.
-		if (numInstances>this.instanceCount) {
-			gl.bufferData(gl.ARRAY_BUFFER, locals, gl.STATIC_DRAW);
+		if (numInstances > this.instanceCount) {
+			gl.bufferData(gl.ARRAY_BUFFER, locals, gl.DYNAMIC_DRAW);
 			this.instanceCount = numInstances;
 		} else {
 			gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
 		}
 
-		gl.bindVertexArray(  this.vao );
+		gl.bindVertexArray(this.vao);
 
 		if (this.indexed) {
 			gl.drawElementsInstanced(gl.TRIANGLES, this.numVertices, gl.UNSIGNED_SHORT, 0, numInstances);
 		} else {
 			gl.drawArraysInstanced(gl.TRIANGLES, 0, this.numVertices, numInstances);
 		}
+
+		gl.bindVertexArray(null);
 	}
 
 	euler(x: number, y: number, z: number) {

@@ -11,6 +11,10 @@ export default class Vector3 {
 		return Vector3.set(Vector3.create(), x, y, z);
 	}
 
+	static clone(vin: Float32Array) : Float32Array {
+		return Vector3.createFromCoords(vin[0], vin[1], vin[2]);
+	}
+
 	static set(out: Float32Array, x: number, y: number, z: number) : Float32Array {
 		out[0] = x;
 		out[1] = y;
@@ -19,11 +23,13 @@ export default class Vector3 {
 		return out;
 	}
 
-	static add(out: Float32Array, v0: Float32Array, v1: Float32Array) {
+	static add(out: Float32Array, v0: Float32Array, v1: Float32Array) : Float32Array{
 
 		out[0] = v0[0] + v1[0];
 		out[1] = v0[1] + v1[1];
 		out[2] = v0[2] + v1[2];
+
+		return out;
 	}
 
 	/**
@@ -57,9 +63,10 @@ export default class Vector3 {
 
 		const l = Vector3.magnitude(v);
 		if (l !== 0) {
-			out[0] = v[0] * l;
-			out[1] = v[1] * l;
-			out[2] = v[2] * l;
+			const ll = 1/l;
+			out[0] = v[0] * ll;
+			out[1] = v[1] * ll;
+			out[2] = v[2] * ll;
 		}
 
 		return out;
