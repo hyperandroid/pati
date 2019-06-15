@@ -1,9 +1,17 @@
 {
   "name": "pati",
   "version": "1.0.0",
-  "dependencies": {
+  "scripts": {
+    "tsc": "echo 'TSC' && tsc",
+    "browserify": "echo 'Browserify' && mkdir -p build && browserify -p tsify -d -r ./Main.js:Main > build/all.js",
+    "build": "npm run tsc && npm run browserify",
+    "serve": "http-server ."
+  },
+  "devDependencies": {
+    "@types/webgl2": "^0.0.4",
     "browserify": "^16.2.3",
+    "http-server": "^0.11.1",
     "tsify": "^4.0.1",
-    "@types/webgl2": "^0.0.4"
+    "typescript": "^3.5.2"
   }
 }
