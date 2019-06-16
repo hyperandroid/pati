@@ -11,8 +11,8 @@ export class EnvironmentMapShader extends Shader {
 				precision mediump float;
 				
 				layout (location = 0) in vec3 aPosition;
-				layout (location = 5) in vec3 aNormal;
 				layout (location = 1) in mat4 aModel;
+				layout (location = 5) in vec3 aNormal;
 				
 				uniform mat4 uProjection;
 				uniform mat4 uModelView;
@@ -21,7 +21,7 @@ export class EnvironmentMapShader extends Shader {
 				out vec3 vModelPosition;
 				
 				void main() {
-					vec4 modelPosition = aModel * aPosition;
+					vec4 modelPosition = aModel * vec4(aPosition, 1.0);
 					gl_Position = uProjection * uModelView * modelPosition;
 					
 					vModelPosition = vec3(modelPosition.xyz);
@@ -32,7 +32,7 @@ export class EnvironmentMapShader extends Shader {
 			
 				precision mediump float;
 				
-				uniform samplerCube uSkyBox;
+				uniform samplerCube uSkybox;
 				uniform vec3 uCameraPos;
 				
 				in vec3 vNormal;
@@ -48,7 +48,7 @@ export class EnvironmentMapShader extends Shader {
 				}
 			`,
 			uniforms: ['uProjection', 'uModelView', 'uSkybox', 'uCameraPos'],
-			attributes: ['aPosition', 'aTexture', 'aNormal', 'aModel']
+			attributes: ['aPosition', 'aNormal', 'aModel']
 		});
 	}
 

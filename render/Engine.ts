@@ -16,15 +16,15 @@ const N = 256;
 
 export default class Engine {
 
-	private readonly width: number;
-	private readonly height: number;
+	private width: number;
+	private height: number;
 
 	readonly gl: WebGL2RenderingContext;
 	private shader : {[key: string]:Shader} = {};
 	private mesh: {[key: string]:RenderComponent} = {};
 	private texture: {[key: string]:Texture} = {};
 
-	private readonly perspective = Matrix4.create();
+	private perspective = Matrix4.create();
 	private readonly camera = new Camera();
 
 	private time = 0;
@@ -41,15 +41,12 @@ export default class Engine {
 		const gl = Platform.glContext;
 		this.gl = gl;
 
-		this.width = w;
-		this.height = h;
-
-		this.perspective = Matrix4.perspective(this.perspective, 70*Math.PI/180, w / h, .01, 1000);
+		this.resize(w,h);
 
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
 		this.shader["skybox"] = new SkyboxShader(gl);
-		// this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
+		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
 
 		this.mesh["cube"] = new CubeIndexed(gl);
 		this.mesh["skybox"] = new Skybox(gl);
@@ -80,6 +77,16 @@ export default class Engine {
 				i*16);
 		}
 
+	}
+
+	resize(w: number, h: number) {
+		if (this.width!==w || this.height!==h) {
+			this.width = w;
+			this.height = h;
+			this.perspective = Matrix4.perspective(this.perspective, 70 * Math.PI / 180, w / h, .01, 1000);
+			Platform.canvas.width = w;
+			Platform.canvas.height = h;
+		}
 	}
 
 	getShader(s: string) : Shader {
