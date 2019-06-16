@@ -52,11 +52,17 @@ new Loader().addImage([
 		} else {
 			console.log('The pointer lock status is now unlocked');
 			Platform.canvas.removeEventListener("mousemove", updatePosition, false);
+			firstPointerLockPosition = true;
 		}
 	}
 
+	let firstPointerLockPosition = true;
 	function updatePosition(ev: MouseEvent) {
-		e.mouseEvent(ev.movementX, ev.movementY);
+		if (firstPointerLockPosition) {
+			firstPointerLockPosition = false;
+		} else {
+			e.mouseEvent(ev.movementX, ev.movementY);
+		}
 	}
 
 	function run() {

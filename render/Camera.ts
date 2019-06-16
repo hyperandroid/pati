@@ -28,15 +28,17 @@ export default class Camera {
 		this.position = Vector3.createFromCoords(0,0,3);
 		this.forward = Vector3.createFromCoords(0,0,0);
 		this.up = Vector3.createFromCoords(0,1,0);
-
-		this.anglesFrom(0,0);
 	}
 
 	setup(pos: Float32Array, forward: Float32Array, up: Float32Array) {
 		Vector3.copy(this.position, pos);
-		Vector3.copy(this.forward, Vector3.normalize(v0,forward));
-		Vector3.copy(this.up, Vector3.normalize(v0,up));
-		this.anglesFrom(0,0);
+		Vector3.copy(this.forward, forward);
+		Vector3.copy(this.up, up);
+		this.lookAt();
+
+		this.yaw = 180/Math.PI*Math.atan2(forward[2], forward[0]);
+		this.pitch = 180/Math.PI*Math.asin(forward[1]);
+
 	}
 
 	lookAt() {

@@ -12,7 +12,7 @@ import RenderComponent from "./RenderComponent";
 import Skybox from "./geometry/Skybox";
 import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 
-const N = 256;
+const N = 64;
 
 export default class Engine {
 
@@ -52,7 +52,7 @@ export default class Engine {
 		this.mesh["skybox"] = new Skybox(gl);
 
 		this.camera.setup(
-			new Float32Array([0, 25, 27]),
+			new Float32Array([0, 25, -10]),
 			new Float32Array([0, 0, -20]),
 			new Float32Array([0, 1, 0]));
 
