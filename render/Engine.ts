@@ -9,8 +9,8 @@ import Camera from "./Camera";
 import SkyboxShader from "./shader/SkyboxShader";
 import {Cube} from "./geometry/Cube";
 import RenderComponent from "./RenderComponent";
-import Skybox from "./geometry/Skybox";
 import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
+import Material from "./Material";
 
 const N = 64;
 
@@ -48,8 +48,10 @@ export default class Engine {
 		this.shader["skybox"] = new SkyboxShader(gl);
 		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
 
-		this.mesh["cube"] = new Cube(gl, false);
-		this.mesh["skybox"] = new Skybox(gl);
+		// this.mesh["cube"] = new Cube(gl, false);
+		// this.mesh["skybox"] = new Skybox(gl);
+		this.mesh["cube"] = new Cube(this, Material.Texture(), false, N*N);
+		this.mesh["skybox"] = new Cube(this, Material.Skybox(), true);
 
 		this.camera.setup(
 			new Float32Array([0, 25, -10]),
@@ -67,7 +69,7 @@ export default class Engine {
 			Vector3.set(this.position, (col-((N-1)/2))*3, 30*Math.sin(2*Math.PI/N*col + t)*Math.cos(2*Math.PI/N*row + t), -row*3);
 			// Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
 			// Vector3.set(this.rotation, Math.random()*2*Math.PI, Math.random()*Math.PI, 0);
-			Vector3.set(this.scale, 20,20,20);
+			Vector3.set(this.scale, 2,2,2);
 			this.matrices.set(
 				Matrix4.modelMatrix(
 					this.matrix,

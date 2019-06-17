@@ -1,8 +1,10 @@
 import Mesh from "../Mesh";
+import Material from "../Material";
+import Engine from "../Engine";
 
 export class Cube extends Mesh {
 
-	constructor(gl: WebGL2RenderingContext, indexed?: boolean) {
+	constructor(e: Engine, material: Material, indexed: boolean, instanceCount?: number) {
 		super();
 
 		const vertices = new Float32Array([
@@ -28,7 +30,7 @@ export class Cube extends Mesh {
 					]);
 
 		if (indexed) {
-			this.from(gl, vertices, uv, index);
+			this.from(e, vertices, uv, index, material, instanceCount||1);
 		} else {
 			const verticesExpanded = new Float32Array(index.length*3);
 			const uvExpanded = new Float32Array(index.length*2);
@@ -50,8 +52,7 @@ export class Cube extends Mesh {
 				uvExpanded[i * 2 + 1] = v;
 			}
 
-			this.from(gl, verticesExpanded, uvExpanded, null);
-
+			this.from(e, verticesExpanded, uvExpanded, null, material, instanceCount||1);
 		}
 	}
 }

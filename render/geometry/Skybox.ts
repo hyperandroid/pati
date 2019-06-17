@@ -8,8 +8,8 @@ export default class Skybox implements RenderComponent {
 
 	private readonly vao: ShaderVAOInfo;
 
-	constructor(gl) {
-		this.vao = SkyboxShader.createVAO(gl);
+	constructor(e: Engine) {
+		// this.vao = e.getShader("skybox").createVAO(e.gl, );
 	}
 
 	render(e: Engine) {

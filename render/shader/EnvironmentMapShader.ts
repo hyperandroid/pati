@@ -1,5 +1,6 @@
 import Shader, {ShaderVAOInfo} from "./Shader";
 import Engine from "../Engine";
+import Material from "../Material";
 
 export class EnvironmentMapShader extends Shader {
 
@@ -73,7 +74,7 @@ export class EnvironmentMapShader extends Shader {
 		this.notUse();
 	}
 
-	static createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, normal: Float32Array, index: Uint16Array, instanceCount?: number) : ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, normal: Float32Array, index: Uint16Array, material: Material, instanceCount: number) : ShaderVAOInfo {
 
 		instanceCount = instanceCount || 1;
 
@@ -100,6 +101,7 @@ export class EnvironmentMapShader extends Shader {
 		gl.bindVertexArray(null);
 
 		return {
+			shader: this,
 			vao,
 			geometryBuffer: glGeometryBuffer,
 			normalBuffer: glNormalBuffer,

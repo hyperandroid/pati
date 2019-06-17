@@ -5,6 +5,8 @@ import Engine from "./Engine";
 import TextureShader from "./shader/TextureShader";
 import {ShaderVAOInfo} from "./shader/Shader";
 import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
+import Material, {MaterialType} from "./Material";
+import SkyboxShader from "./shader/SkyboxShader";
 
 export default class Mesh implements RenderComponent {
 
@@ -36,18 +38,21 @@ export default class Mesh implements RenderComponent {
 	 *  stride of (coords per vertex)*sizeof(FLOAT) = (3*4), offset 0
 	 *  stride of (coords per vertex uv)*sizeof(FLOAT) = (2*4), offset num_vertices * sizeof(FLOAT)
 	 *
-	 * @param gl WebGL2RenderingContext
-	 * @param vertices an array of vertex data. Contains x,y,z info per vertex.
-	 * @param uv an array of vertex data. Contains x,y,z info per vertex.
-	 * @param index optional array of index data.
-	 * @param instanceCount number of instances to allocate space for.
 	 */
-	from(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index?: Uint16Array, instanceCount?: number) {
+	from(e: Engine, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number) {
 
+		const gl = e.gl;
 
-		// this.shaderInfo = TextureShader.createVAO(gl, vertices, uv, index, 1);
-		// this.shaderInfo = EnvironmentMapShader.createVAO(gl, new Float32Array(vertices), normals, new Uint16Array(index), 1);
-		this.shaderInfo = EnvironmentMapShader.createVAO(gl, vertices, this.generateNormals(vertices, index), index);
+		switch(material.type) {
+			case MaterialType.REFLECTIVE:
+				this.shaderInfo = e.getShader("reflectiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
+				break;
+			case MaterialType.TEXTURE:
+				this.shaderInfo = e.getShader("texture").createVAO(gl, vertices, uv, index, material, instanceCount);
+				break;
+			case MaterialType.SKYBOX:
+				this.shaderInfo = e.getShader("skybox").createVAO(gl, vertices, uv, index, material, instanceCount);
+		}
 	}
 
 	private generateNormals(vertices: Float32Array, index: Uint16Array) : Float32Array {
@@ -138,14 +143,13 @@ export default class Mesh implements RenderComponent {
 	}
 
 	render(e: Engine) {
-		this.renderInstanced(e, this.transform, 1);
+		this.shaderInfo.shader.render(e, this.shaderInfo);
 	}
 
 	renderInstanced(e: Engine, locals: Float32Array, numInstances: number) {
 
 		this.transformMatrix();
 
-		const ns = e.getShader("reflectiveEnvMap");
 		const gl = e.gl;
 
 		// update instances info if needed.
@@ -159,7 +163,7 @@ export default class Mesh implements RenderComponent {
 			gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
 		}
 
-		ns.render(e, this.shaderInfo);
+		this.shaderInfo.shader.render(e, this.shaderInfo);
 	}
 
 	euler(x: number, y: number, z: number) {

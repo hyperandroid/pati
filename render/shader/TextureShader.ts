@@ -1,6 +1,7 @@
 import Shader, {ShaderVAOInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
 import Engine from "../Engine";
+import Material from "../Material";
 
 /**
  * just draw geometry in a plain pink color
@@ -68,7 +69,7 @@ export default class TextureShader extends Shader {
 		gl.useProgram(null);
 	}
 
-	static createVAO(gl: WebGL2RenderingContext, vertices: number[], uv: number[], index: number[], instanceCount?: number) : ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount?: number) : ShaderVAOInfo {
 
 		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
@@ -93,6 +94,7 @@ export default class TextureShader extends Shader {
 		gl.bindVertexArray(null);
 
 		return {
+			shader: this,
 			vao,
 			geometryBuffer: glGeometryBuffer,
 			uvBuffer: glUVBuffer,

@@ -1,5 +1,6 @@
 import Shader, {ShaderVAOInfo} from "./Shader";
 import Engine from "../Engine";
+import Material from "../Material";
 
 /**
  * Skybox shader which draws a cubemap onto a cube.
@@ -55,50 +56,36 @@ export default class SkyboxShader extends Shader {
 		})
 	}
 
-	static createVAO(gl: WebGL2RenderingContext) : ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount?: number) : ShaderVAOInfo {
+
 		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
 
+
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(vertices), 12, 0);
+
+		let glBufferIndex = gl.createBuffer();
+		let vertexCount = index.length;
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
+
 		gl.enableVertexAttribArray(0);
-
-		const glVerticesBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, glVerticesBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-			1.0, -1.0, -1.0,
-			-1.0, -1.0, -1.0,
-			-1.0, -1.0, 1.0,
-			1.0, -1.0, 1.0,
-			1.0, 1.0, -1.0,
-			-1.0, 1.0, -1.0,
-			-1.0, 1.0, 1.0,
-			1.0, 1.0, 1.0,
-		]), gl.STATIC_DRAW);
-
-		const glIndexBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glIndexBuffer);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([
-			2, 1, 0, 3, 2, 0,
-			3, 0, 4, 7, 3, 4,
-			0, 1, 5, 4, 0, 5,
-			1, 2, 6, 5, 1, 6,
-			2, 3, 7, 6, 2, 7,
-			4, 5, 6, 7, 4, 6,
-		]), gl.STATIC_DRAW);
-
 		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
 		gl.vertexAttribDivisor(0, 0);
 
 		gl.bindVertexArray(null);
 
 		return {
+			shader: this,
 			vao,
-			geometryBuffer: glVerticesBuffer,
-			vertexCount: 36,
-			indexBuffer: glIndexBuffer,
+			geometryBuffer: glGeometryBuffer,
+			vertexCount: vertexCount,
+			indexBuffer: glBufferIndex,
 			uvBuffer: null,
 			instanceBuffer: null,
 			instanceCount: 1,
 			normalBuffer: null,
+
 		}
 	}
 
