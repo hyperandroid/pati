@@ -13,7 +13,7 @@ export enum MaterialType {
 	REFLECTIVE
 }
 
-export interface MaterialInitializer {
+export interface MaterialDefinition {
 	diffuse: Texture;
 
 	specularIntentisy? : number;
@@ -27,28 +27,29 @@ export interface MaterialInitializer {
 
 export default class Material {
 
-	//
-	// private readonly definition: MaterialInitializer;
-	//
-	// constructor(init: MaterialInitializer) {
-	// 	this.definition = init;
-	// }
+	readonly definition: MaterialDefinition;
+	readonly type: MaterialType;
 
-	type: MaterialType;
-
-	private constructor(t: MaterialType) {
+	private constructor(t: MaterialType, def?: MaterialDefinition) {
 		this.type = t;
+		this.definition = def;
 	}
 
-	static Reflective() {
-		return new Material(MaterialType.REFLECTIVE);
+	static Reflective(t: Texture) {
+		return new Material(MaterialType.REFLECTIVE, {
+			diffuse: t,
+		});
 	}
 
-	static Skybox() {
-		return new Material(MaterialType.SKYBOX);
+	static Skybox(texture: Texture) {
+		return new Material(MaterialType.SKYBOX, {
+			diffuse: texture,
+		});
 	}
 
-	static Texture() {
-		return new Material(MaterialType.TEXTURE);
+	static Texture(texture: Texture) {
+		return new Material(MaterialType.TEXTURE, {
+			diffuse: texture,
+		});
 	}
 }

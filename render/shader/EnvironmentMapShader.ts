@@ -51,12 +51,12 @@ export class EnvironmentMapShader extends Shader {
 		});
 	}
 
-	render(e: Engine, info: ShaderVAOInfo) {
+	render(e: Engine, info: ShaderVAOInfo, material: Material) {
 		const gl = e.gl;
 
 		this.use();
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
-		e.getTexture("cubemap").enableAsUnit(gl, 0);
+		material.definition.diffuse.enableAsUnit(gl, 0);
 		this.set1I("uSkybox", 0);
 		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 		const cameraPos = e.cameraPosition();

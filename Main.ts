@@ -25,6 +25,8 @@ new Loader().addImage([
 	e.addTexture("cubemap", Texture.initializeCubeMap(gl,
 		l.getImagesWith(["left.jpg", "right.jpg", "top.jpg", "bottom.jpg", "back.jpg", "front.jpg"])));
 
+	e.init();
+
 	window.addEventListener("keydown", (ev: KeyboardEvent) => {
 		e.keyboardEvent(ev.key, true);
 	});

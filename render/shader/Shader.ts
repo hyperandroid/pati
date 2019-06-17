@@ -159,7 +159,7 @@ export default abstract class Shader {
 		this._gl.uniformMatrix4fv(this._uniforms[name], transpose, matrix, srcOffset, srcLength);
 	}
 
-	abstract render(e: Engine, info: ShaderVAOInfo);
+	abstract render(e: Engine, info: ShaderVAOInfo, material: Material);
 
 	protected static createInstancedModelMatrix(gl: WebGL2RenderingContext, instanceCount: number, attributeId: number): WebGLBuffer {
 

@@ -38,20 +38,21 @@ export default class Engine {
 	constructor(w: number, h: number) {
 		Platform.initialize(w, h);
 
-		const gl = Platform.glContext;
-		this.gl = gl;
+		this.gl = Platform.glContext;
 
-		this.resize(w,h);
+		this.resize(w, h);
+	}
+
+	init() {
+		const gl = this.gl;
 
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
 		this.shader["skybox"] = new SkyboxShader(gl);
 		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
 
-		// this.mesh["cube"] = new Cube(gl, false);
-		// this.mesh["skybox"] = new Skybox(gl);
-		this.mesh["cube"] = new Cube(this, Material.Texture(), false, N*N);
-		this.mesh["skybox"] = new Cube(this, Material.Skybox(), true);
+		this.mesh["cube"] = new Cube(this, Material.Reflective(this.getTexture("cubemap")), false, N*N);
+		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
 		this.camera.setup(
 			new Float32Array([0, 25, -10]),

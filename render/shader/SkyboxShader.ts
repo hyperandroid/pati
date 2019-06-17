@@ -89,7 +89,7 @@ export default class SkyboxShader extends Shader {
 		}
 	}
 
-	render(e: Engine, info: ShaderVAOInfo) {
+	render(e: Engine, info: ShaderVAOInfo, material: Material) {
 
 		const gl = e.gl;
 
@@ -97,7 +97,7 @@ export default class SkyboxShader extends Shader {
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
 		this.setMatrix4fv("uView", false, e.viewMatrix());
 
-		e.getTexture("cubemap").enableAsUnit(gl, 0);
+		material.definition.diffuse.enableAsUnit(gl, 0);
 		this.set1I("uSampler", 0);
 
 		gl.depthFunc(gl.LEQUAL);	// trick depth

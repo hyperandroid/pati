@@ -106,13 +106,13 @@ export default class TextureShader extends Shader {
 		};
 	}
 
-	render(e: Engine, info: ShaderVAOInfo) {
+	render(e: Engine, info: ShaderVAOInfo, material: Material) {
 
 		const gl = e.gl;
 
 		this.use();
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
-		e.getTexture("texture0").enableAsUnit(gl, 0);
+		material.definition.diffuse.enableAsUnit(gl, 0);
 		this.set1I("uTextureSampler", 0);
 		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 

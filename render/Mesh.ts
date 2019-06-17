@@ -2,14 +2,12 @@ import Vector3 from "../math/Vector3";
 import Matrix4 from "../math/Matrix4";
 import RenderComponent from "./RenderComponent";
 import Engine from "./Engine";
-import TextureShader from "./shader/TextureShader";
 import {ShaderVAOInfo} from "./shader/Shader";
-import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 import Material, {MaterialType} from "./Material";
-import SkyboxShader from "./shader/SkyboxShader";
 
 export default class Mesh implements RenderComponent {
 
+	material: Material = null;
 	shaderInfo: ShaderVAOInfo = null;
 
 	position = Vector3.createFromCoords(0,0,0);
@@ -40,6 +38,8 @@ export default class Mesh implements RenderComponent {
 	 *
 	 */
 	from(e: Engine, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number) {
+
+		this.material = material;
 
 		const gl = e.gl;
 
@@ -143,7 +143,7 @@ export default class Mesh implements RenderComponent {
 	}
 
 	render(e: Engine) {
-		this.shaderInfo.shader.render(e, this.shaderInfo);
+		this.shaderInfo.shader.render(e, this.shaderInfo, this.material);
 	}
 
 	renderInstanced(e: Engine, locals: Float32Array, numInstances: number) {
@@ -163,7 +163,7 @@ export default class Mesh implements RenderComponent {
 			gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
 		}
 
-		this.shaderInfo.shader.render(e, this.shaderInfo);
+		this.shaderInfo.shader.render(e, this.shaderInfo, this.material);
 	}
 
 	euler(x: number, y: number, z: number) {
