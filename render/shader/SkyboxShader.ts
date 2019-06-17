@@ -95,10 +95,10 @@ export default class SkyboxShader extends Shader {
 			geometryBuffer: glVerticesBuffer,
 			vertexCount: 36,
 			indexBuffer: glIndexBuffer,
-			indexedGeometry: true,
 			uvBuffer: null,
 			instanceBuffer: null,
-			instanceCount: 1
+			instanceCount: 1,
+			normalBuffer: null,
 		}
 	}
 

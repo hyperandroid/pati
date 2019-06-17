@@ -10,7 +10,7 @@ function radians(v) : number {
 
 export default class Camera {
 
-	private readonly position: Float32Array;
+	readonly position: Float32Array;
 	private readonly forward : Float32Array;
 	private readonly up: Float32Array;
 

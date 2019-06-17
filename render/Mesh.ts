@@ -4,6 +4,7 @@ import RenderComponent from "./RenderComponent";
 import Engine from "./Engine";
 import TextureShader from "./shader/TextureShader";
 import {ShaderVAOInfo} from "./shader/Shader";
+import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 
 export default class Mesh implements RenderComponent {
 
@@ -41,8 +42,88 @@ export default class Mesh implements RenderComponent {
 	 * @param index optional array of index data.
 	 * @param instanceCount number of instances to allocate space for.
 	 */
-	from(gl: WebGL2RenderingContext, vertices: number[], uv: number[], index?: number[], instanceCount?: number) {
-		this.shaderInfo = TextureShader.createVAO(gl, vertices, uv, index, 1);
+	from(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index?: Uint16Array, instanceCount?: number) {
+
+
+		// this.shaderInfo = TextureShader.createVAO(gl, vertices, uv, index, 1);
+		// this.shaderInfo = EnvironmentMapShader.createVAO(gl, new Float32Array(vertices), normals, new Uint16Array(index), 1);
+		this.shaderInfo = EnvironmentMapShader.createVAO(gl, vertices, this.generateNormals(vertices, index), index);
+	}
+
+	private generateNormals(vertices: Float32Array, index: Uint16Array) : Float32Array {
+		const v0 = Vector3.create();
+		const v1 = Vector3.create();
+		const v2 = Vector3.create();
+		const v3 = Vector3.create();
+		const v4 = Vector3.create();
+		const v5 = Vector3.create();
+
+		let normals: Float32Array = new Float32Array(vertices.length);;
+
+		if (index !== null) {
+
+			for (let i = 0; i < index.length; i += 3) {
+				const v0i = index[i] * 3;
+				const v1i = index[i + 1] * 3;
+				const v2i = index[i + 2] * 3;
+
+				Vector3.set(v0, vertices[v0i], vertices[v0i + 1], vertices[v0i + 2]);
+				Vector3.set(v1, vertices[v1i], vertices[v1i + 1], vertices[v1i + 2]);
+				Vector3.set(v2, vertices[v2i], vertices[v2i + 1], vertices[v2i + 2]);
+
+				Vector3.sub(v3, v0, v1);
+				Vector3.sub(v4, v0, v2);
+
+				Vector3.cross(v5, v4, v3);	// normal
+
+				normals[v0i] += v5[0];
+				normals[v0i + 1] += v5[1];
+				normals[v0i + 2] += v5[2];
+				normals[v1i] += v5[0];
+				normals[v1i + 1] += v5[1];
+				normals[v1i + 2] += v5[2];
+				normals[v2i] += v5[0];
+				normals[v2i + 1] += v5[1];
+				normals[v2i + 2] += v5[2];
+			}
+
+		} else {
+
+			for(let i = 0; i<vertices.length; i+=9) {
+				const v0i = i ;
+				const v1i = i + 3;
+				const v2i = i + 6;
+
+				Vector3.set(v0, vertices[v0i], vertices[v0i + 1], vertices[v0i + 2]);
+				Vector3.set(v1, vertices[v1i], vertices[v1i + 1], vertices[v1i + 2]);
+				Vector3.set(v2, vertices[v2i], vertices[v2i + 1], vertices[v2i + 2]);
+
+				Vector3.sub(v3, v0, v1);
+				Vector3.sub(v4, v0, v2);
+
+				Vector3.cross(v5, v3, v4);	// normal
+
+				normals[i] += v5[0];
+				normals[i + 1] += v5[1];
+				normals[i + 2] += v5[2];
+				normals[i + 3] += v5[0];
+				normals[i + 4] += v5[1];
+				normals[i + 5] += v5[2];
+				normals[i + 6] += v5[0];
+				normals[i + 7] += v5[1];
+				normals[i + 8] += v5[2];
+			}
+		}
+
+		// normalize.
+		for (let i = 0; i < normals.length; i += 3) {
+			const v = Math.sqrt(normals[i] * normals[i] + normals[i + 1] * normals[i + 1] + normals[i + 2] * normals[i + 2]);
+			normals[i] /= v;
+			normals[i + 1] /= v;
+			normals[i + 2] /= v;
+		}
+
+		return normals;
 	}
 
 	transformMatrix() : Float32Array {
@@ -64,7 +145,7 @@ export default class Mesh implements RenderComponent {
 
 		this.transformMatrix();
 
-		const ns = e.getShader("texture");
+		const ns = e.getShader("reflectiveEnvMap");
 		const gl = e.gl;
 
 		// update instances info if needed.

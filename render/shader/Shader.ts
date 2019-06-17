@@ -1,4 +1,5 @@
 import Engine from "../Engine";
+import Matrix4 from "../../math/Matrix4";
 
 export interface ShaderInitializer {
 	gl: WebGL2RenderingContext;
@@ -13,9 +14,9 @@ export interface ShaderVAOInfo {
 	vao: WebGLVertexArrayObject;
 	geometryBuffer: WebGLBuffer;
 	uvBuffer: WebGLBuffer;
+	normalBuffer: WebGLBuffer;
 	indexBuffer: WebGLBuffer;
 	instanceBuffer: WebGLBuffer;
-	indexedGeometry: boolean;
 	vertexCount: number;
 	instanceCount: number;
 }
@@ -157,4 +158,35 @@ export default abstract class Shader {
 	}
 
 	abstract render(e: Engine, info: ShaderVAOInfo);
+
+    protected static createInstancedModelMatrix(gl: WebGL2RenderingContext, instanceCount: number, attributeId: number) : WebGLBuffer {
+
+		const glInstancedMatrixBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, glInstancedMatrixBuffer);
+		const matrixBuffer = new Float32Array(16*instanceCount);
+		for(let i = 0; i < instanceCount; i++) {
+			Matrix4.identity(matrixBuffer, i*16);
+		}
+		gl.bufferData(gl.ARRAY_BUFFER, matrixBuffer, gl.DYNAMIC_DRAW);
+
+		for(let i = 0; i<4; i++ ) {
+
+			gl.enableVertexAttribArray(attributeId + i);
+			gl.vertexAttribDivisor(attributeId + i,1);
+			gl.vertexAttribPointer(attributeId + i, 4, gl.FLOAT, false, 64, i*16);
+		}
+
+		return glInstancedMatrixBuffer;
+	}
+
+	protected static createAttributeInfo(gl: WebGL2RenderingContext, attributeId: number, data: Float32Array, stride: number, offset: number) : WebGLBuffer {
+		const buffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+		gl.vertexAttribPointer(attributeId, stride/4, gl.FLOAT, false, stride, offset);
+		gl.vertexAttribDivisor(attributeId,0);
+
+		return buffer;
+	}
+
 }
