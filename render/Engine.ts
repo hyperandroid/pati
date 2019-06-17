@@ -50,8 +50,9 @@ export default class Engine {
 		this.shader["texture"] = new TextureShader(gl);
 		this.shader["skybox"] = new SkyboxShader(gl);
 		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
+		this.shader["refractiveEnvMap"] = new EnvironmentMapShader(gl, true);
 
-		this.mesh["cube"] = new Cube(this, Material.Reflective(this.getTexture("cubemap")), false, N*N);
+		this.mesh["cube"] = new Cube(this, Material.Refractive(this.getTexture("cubemap")), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
 		this.camera.setup(

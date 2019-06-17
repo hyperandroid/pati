@@ -47,11 +47,17 @@ export default class Mesh implements RenderComponent {
 			case MaterialType.REFLECTIVE:
 				this.shaderInfo = e.getShader("reflectiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
 				break;
+			case MaterialType.REFRACTIVE:
+				this.shaderInfo = e.getShader("refractiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
+				break;
 			case MaterialType.TEXTURE:
 				this.shaderInfo = e.getShader("texture").createVAO(gl, vertices, uv, index, material, instanceCount);
 				break;
 			case MaterialType.SKYBOX:
 				this.shaderInfo = e.getShader("skybox").createVAO(gl, vertices, uv, index, material, instanceCount);
+				break;
+			default:
+				throw new Error(`Unknown material type. ${material}`);
 		}
 	}
 

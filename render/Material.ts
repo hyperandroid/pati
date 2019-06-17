@@ -10,7 +10,8 @@ enum MaterialTexture {
 export enum MaterialType {
 	SKYBOX,
 	TEXTURE,
-	REFLECTIVE
+	REFLECTIVE,
+	REFRACTIVE
 }
 
 export interface MaterialDefinition {
@@ -37,6 +38,12 @@ export default class Material {
 
 	static Reflective(t: Texture) {
 		return new Material(MaterialType.REFLECTIVE, {
+			diffuse: t,
+		});
+	}
+
+	static Refractive(t: Texture) {
+		return new Material(MaterialType.REFRACTIVE, {
 			diffuse: t,
 		});
 	}
