@@ -4,7 +4,7 @@ import Material from "../Material";
 
 export class EnvironmentMapShader extends Shader {
 
-	constructor(gl: WebGL2RenderingContext) {
+	constructor(gl: WebGL2RenderingContext, refractive?: boolean) {
 		super({
 			gl,
 			vertex : `#version 300 es
@@ -33,22 +33,48 @@ export class EnvironmentMapShader extends Shader {
 				
 				uniform samplerCube uSkybox;
 				uniform vec3 uCameraPos;
+				uniform float uRefractionFactor;
 				
 				in vec3 vNormal;
 				in vec3 vModelPosition;
 				
 				out vec4 color;
 				
-				void main() {
-					vec3 I = normalize(vModelPosition-uCameraPos);
-					vec3 R = reflect(I, normalize(vNormal));
+				#ifdef REFRACTIVE
+				
+								
+					vec4 refraction() {
+						float ratio = 1.00 / uRefractionFactor;
+						vec3 I = normalize(vModelPosition-uCameraPos);
+						vec3 R = refract(I, normalize(vNormal), ratio);
+						return texture(uSkybox, R);
+					}				
 					
-					color = texture(uSkybox, R);
-				}
+					void main() {
+						color = refraction();
+					}
+				#else 
+					vec4 reflection() {
+						vec3 I = normalize(vModelPosition-uCameraPos);
+						vec3 R = reflect(I, normalize(vNormal));
+						return texture(uSkybox, R);				
+					}
+					
+					void main() {
+						color = reflection();
+					}
+				#endif
 			`,
-			uniforms: ['uProjection', 'uModelView', 'uSkybox', 'uCameraPos'],
-			attributes: ['aPosition', 'aNormal', 'aModel']
+			uniforms: ['uProjection', 'uModelView', 'uSkybox', 'uCameraPos', 'uRefractionFactor'],
+			attributes: ['aPosition', 'aNormal', 'aModel'],
+			defines: refractive ? {'REFRACTIVE': '1'} : {}
 		});
+
+		if (refractive) {
+			this.use();
+			this.set1F("uRefractionFactor", 1.52);
+			this.notUse();
+		}
 	}
 
 	render(e: Engine, info: ShaderVAOInfo, material: Material) {

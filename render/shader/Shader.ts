@@ -65,14 +65,19 @@ export default abstract class Shader {
 			ret = def as string;
 		}
 
-		let sdefines = "";
+		let sdefines: string[] = [];
 		if (defines !== void 0) {
 			Object.keys(defines).forEach(d => {
-				sdefines = `${sdefines}#define ${d} ${defines[d]}\n`;
+				sdefines.push(`#define ${d} ${defines[d]}`);
 			})
 		}
 
-		return sdefines + ret;
+		const lines = ret.split('\n');
+		if (lines[0].startsWith("#version")) {
+			lines.splice(1, 0, ...sdefines);
+		}
+
+		return lines.join('\n');
 	}
 
 	private __init(shaderDef: ShaderInitializer) {
