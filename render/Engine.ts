@@ -74,8 +74,8 @@ export default class Engine {
 				{
 					renderBufferTarget: gl.COLOR_ATTACHMENT0,
 					textureDefinition: {
-						width: 1024,
-						height: 1024,
+						width: 512,
+						height: 512,
 					}
 				}
 			]
@@ -92,26 +92,6 @@ export default class Engine {
 			new Float32Array([0, 1, 0]));
 
 		this.initializeGraphics();
-
-		for(let i = 0; i < N*N; i++ ) {
-			const row = (i/N)|0;
-			const col = i%N;
-
-			const tt = 5000;
-			const t = ((this.time%tt))/(tt/2)*Math.PI;
-			Vector3.set(this.position, (col-((N-1)/2))*3, 30*Math.sin(2*Math.PI/N*col + t)*Math.cos(2*Math.PI/N*row + t), -row*3);
-			// Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
-			// Vector3.set(this.rotation, Math.random()*2*Math.PI, Math.random()*Math.PI, 0);
-			Vector3.set(this.scale, 2,2,2);
-			this.matrices.set(
-				Matrix4.modelMatrix(
-					this.matrix,
-					this.position,
-					this.rotation,
-					this.scale),
-				i*16);
-		}
-
 	}
 
 	resize(w: number, h: number, force?: boolean) {
@@ -169,7 +149,12 @@ export default class Engine {
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 		this.currentCamera = this.camera["camera1"];
 		this.currentCamera.sync();
-		(this.mesh["cube2"] as Mesh).euler( this.time/500, this.time/1020, -this.time/2400);
+		const u = this.time/1777;
+		Vector3.set(this.currentCamera.position,
+			3*Math.sin(u),
+			Math.sin(u)/3,
+			3*Math.cos(u));
+		this.currentCamera.lookAt(-this.currentCamera.position[0],0,-this.currentCamera.position[2]);
 		this.mesh["cube2"].render(this);
 		this.mesh["skybox"].render(this);
 
@@ -177,10 +162,31 @@ export default class Engine {
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 		this.currentCamera = this.camera["camera0"];
 		this.currentCamera.sync();
+		this.updateInstancingMatrices();
 		this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
 		this.mesh["skybox"].render(this);
 
 		this.time += delta;
+	}
+
+	private updateInstancingMatrices() {
+		for (let i = 0; i < N * N; i++) {
+			const row = (i / N) | 0;
+			const col = i % N;
+
+			const tt = 125000;
+			const t = ((this.time % tt)) / (tt / 2) * Math.PI;
+			Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 30 * Math.sin(2 * Math.PI / N * col + t) * Math.cos(2 * Math.PI / N * row + t), -row * 3);
+			Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
+			Vector3.set(this.scale, 2, 2, 2);
+			this.matrices.set(
+				Matrix4.modelMatrix(
+					this.matrix,
+					this.position,
+					this.rotation,
+					this.scale),
+				i * 16);
+		}
 	}
 
 	mouseEvent(pixelsIncrementX: number,pixelsIncrementY: number) {
