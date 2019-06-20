@@ -149,27 +149,37 @@ export default class Mesh implements RenderComponent {
 	}
 
 	render(e: Engine) {
-		this.shaderInfo.shader.render(e, this.shaderInfo, this.material);
+		this.renderInstanced(e, this.transform, 1);
 	}
 
 	renderInstanced(e: Engine, locals: Float32Array, numInstances: number) {
 
 		this.transformMatrix();
-
 		const gl = e.gl;
 
-		// update instances info if needed.
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.instanceBuffer);
+		// bugbug, should be checked on shader.
+		if (null!==this.shaderInfo.instanceBuffer) {
+			// update instances info if needed.
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.instanceBuffer);
 
-		// check for locals info room in current instance info buffer.
-		if (numInstances > this.shaderInfo.instanceCount) {
-			gl.bufferData(gl.ARRAY_BUFFER, locals, gl.DYNAMIC_DRAW);
-			this.shaderInfo.instanceCount = numInstances;
-		} else {
-			gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
+			// check for locals info room in current instance info buffer.
+			if (numInstances > this.shaderInfo.instanceCount) {
+				gl.bufferData(gl.ARRAY_BUFFER, locals, gl.DYNAMIC_DRAW);
+				this.shaderInfo.instanceCount = numInstances;
+			} else {
+				gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
+			}
 		}
 
-		this.shaderInfo.shader.render(e, this.shaderInfo, this.material);
+		this.shaderInfo.shader.render(e, this.shaderInfo, this);
+	}
+
+	getMaterial() {
+		return this.material;
+	}
+
+	getMatrix() {
+		return this.transformMatrix();
 	}
 
 	euler(x: number, y: number, z: number) {

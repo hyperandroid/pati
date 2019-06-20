@@ -11,21 +11,25 @@ import {Cube} from "./geometry/Cube";
 import RenderComponent from "./RenderComponent";
 import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 import Material from "./Material";
+import Surface from "./Surface";
+import Mesh from "./Mesh";
 
 const N = 64;
 
 export default class Engine {
 
-	private width: number;
-	private height: number;
+	renderWidth: number;
+	renderHeight: number;
 
 	readonly gl: WebGL2RenderingContext;
 	private shader : {[key: string]:Shader} = {};
 	private mesh: {[key: string]:RenderComponent} = {};
 	private texture: {[key: string]:Texture} = {};
+	private surface: {[key: string]:Surface} = {};
+	private camera: {[key: string]:Camera} = {};
 
 	private perspective = Matrix4.create();
-	private readonly camera = new Camera();
+	private currentCamera: Camera;
 
 	private time = 0;
 
@@ -40,11 +44,18 @@ export default class Engine {
 
 		this.gl = Platform.glContext;
 
-		this.resize(w, h);
+		this.resize(w, h, true);
 	}
 
 	init() {
 		const gl = this.gl;
+
+		this.currentCamera = new Camera();
+		this.camera["camera0"] = this.currentCamera;
+		this.camera["camera1"] = new Camera().setup(
+				new Float32Array([0, 0, 2]),
+				new Float32Array([0, 0, -1]),
+				new Float32Array([0, 1, 0]));
 
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
@@ -52,10 +63,30 @@ export default class Engine {
 		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
 		this.shader["refractiveEnvMap"] = new EnvironmentMapShader(gl, true);
 
-		this.mesh["cube"] = new Cube(this, Material.Refractive(this.getTexture("cubemap")), false, N*N);
+		this.surface["surface0"] = new Surface(this, {
+			width: 1024,
+			height: 1024,
+			attachments: [
+				{
+					renderBufferTarget: gl.DEPTH_STENCIL_ATTACHMENT,
+					renderBufferInternalFormat: gl.DEPTH24_STENCIL8
+				},
+				{
+					renderBufferTarget: gl.COLOR_ATTACHMENT0,
+					textureDefinition: {
+						width: 1024,
+						height: 1024,
+					}
+				}
+			]
+		});
+
+		this.mesh["cube2"] = new Cube(this, Material.Texture(this.getTexture("texture0")), false);
+
+		this.mesh["cube"] = new Cube(this, Material.Texture(this.surface["surface0"].texture), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-		this.camera.setup(
+		this.currentCamera.setup(
 			new Float32Array([0, 25, -10]),
 			new Float32Array([0, 0, -20]),
 			new Float32Array([0, 1, 0]));
@@ -83,14 +114,19 @@ export default class Engine {
 
 	}
 
-	resize(w: number, h: number) {
-		if (this.width!==w || this.height!==h) {
-			this.width = w;
-			this.height = h;
-			this.perspective = Matrix4.perspective(this.perspective, 70 * Math.PI / 180, w / h, .01, 1000);
+	resize(w: number, h: number, force?: boolean) {
+		if (force || Platform.canvas.width!==w || Platform.canvas.height!==h) {
 			Platform.canvas.width = w;
 			Platform.canvas.height = h;
+			this.renderSurfaceSize(w, h);
 		}
+	}
+
+	renderSurfaceSize(w: number, h: number) {
+		this.renderWidth = w;
+		this.renderHeight = h;
+		this.perspective = Matrix4.perspective(this.perspective, 70 * Math.PI / 180, w / h, .01, 1000);
+		this.gl.viewport(0,0,w,h);
 	}
 
 	getShader(s: string) : Shader {
@@ -110,15 +146,15 @@ export default class Engine {
 	}
 
 	cameraMatrix() : Float32Array {
-		return this.camera.matrix;
+		return this.currentCamera.matrix;
 	}
 
 	cameraPosition() : Float32Array {
-		return this.camera.position;
+		return this.currentCamera.position;
 	}
 
 	viewMatrix() : Float32Array {
-		return this.camera.viewMatrix;
+		return this.currentCamera.viewMatrix;
 	}
 
 	private initializeGraphics() {
@@ -129,11 +165,18 @@ export default class Engine {
 
 	render(delta: number) {
 
+		this.surface["surface0"].enableAsTextureTarget(this);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		this.currentCamera = this.camera["camera1"];
+		this.currentCamera.sync();
+		(this.mesh["cube2"] as Mesh).euler( this.time/500, this.time/1020, -this.time/2400);
+		this.mesh["cube2"].render(this);
+		this.mesh["skybox"].render(this);
 
-		this.gl.viewport(0, 0, this.width, this.height);
-		this.camera.lookAt();
-
+		this.surface["surface0"].disableAsTextureTarget(this);
+		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		this.currentCamera = this.camera["camera0"];
+		this.currentCamera.sync();
 		this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
 		this.mesh["skybox"].render(this);
 
@@ -141,28 +184,29 @@ export default class Engine {
 	}
 
 	mouseEvent(pixelsIncrementX: number,pixelsIncrementY: number) {
-		this.camera.anglesFrom(pixelsIncrementX,pixelsIncrementY);
+		this.camera["camera0"].anglesFrom(pixelsIncrementX,pixelsIncrementY);
 	}
 
 	keyboardEvent(key: string, down: boolean) {
+		const c = this.camera["camera0"];
 		switch(key) {
 			case 'w':
-				this.camera.advanceAmount = down ? 1 : 0;
+				c.advanceAmount = down ? 1 : 0;
 				break;
 			case 's':
-				this.camera.advanceAmount = down ? -1 : 0;
+				c.advanceAmount = down ? -1 : 0;
 				break;
 			case 'a':
-				this.camera.strafeAmount = down ? -1 : 0;
+				c.strafeAmount = down ? -1 : 0;
 				break;
 			case 'd':
-				this.camera.strafeAmount = down ? 1 : 0;
+				c.strafeAmount = down ? 1 : 0;
 				break;
 			case 'q':
-				this.camera.upAmount = down ? -1 : 0;
+				c.upAmount = down ? -1 : 0;
 				break;
 			case 'z':
-				this.camera.upAmount = down ? 1 : 0;
+				c.upAmount = down ? 1 : 0;
 				break;
 		}
 	}

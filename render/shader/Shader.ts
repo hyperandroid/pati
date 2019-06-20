@@ -1,6 +1,7 @@
 import Engine from "../Engine";
 import Matrix4 from "../../math/Matrix4";
 import Material from "../Material";
+import RenderComponent from "../RenderComponent";
 
 export interface ShaderInitializer {
 	gl: WebGL2RenderingContext;
@@ -164,7 +165,7 @@ export default abstract class Shader {
 		this._gl.uniformMatrix4fv(this._uniforms[name], transpose, matrix, srcOffset, srcLength);
 	}
 
-	abstract render(e: Engine, info: ShaderVAOInfo, material: Material);
+	abstract render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent);
 
 	protected static createInstancedModelMatrix(gl: WebGL2RenderingContext, instanceCount: number, attributeId: number): WebGLBuffer {
 

@@ -1,6 +1,7 @@
 import Shader, {ShaderVAOInfo} from "./Shader";
 import Engine from "../Engine";
 import Material from "../Material";
+import RenderComponent from "../RenderComponent";
 
 export class EnvironmentMapShader extends Shader {
 
@@ -23,7 +24,9 @@ export class EnvironmentMapShader extends Shader {
 				
 				void main() {					
 					vModelPosition = vec3(aModel * vec4(aPosition, 1.0));
-					vNormal = mat3(transpose(inverse(aModel)))*aNormal;
+					// to cope with non uniform scales (normal matrix)
+					// bugbug: calculate in cpu, and pass as another instance attribute.
+					vNormal = mat3(transpose(inverse(aModel)))*aNormal;	
 					gl_Position = uProjection * uModelView * aModel * vec4(aPosition, 1.0);
 				}
 			`,
@@ -77,12 +80,12 @@ export class EnvironmentMapShader extends Shader {
 		}
 	}
 
-	render(e: Engine, info: ShaderVAOInfo, material: Material) {
+	render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent) {
 		const gl = e.gl;
 
 		this.use();
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
-		material.definition.diffuse.enableAsUnit(gl, 0);
+		rc.getMaterial().definition.diffuse.enableAsUnit(gl, 0);
 		this.set1I("uSkybox", 0);
 		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 		const cameraPos = e.cameraPosition();

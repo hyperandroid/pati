@@ -2,6 +2,7 @@ import Shader, {ShaderVAOInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
 import Engine from "../Engine";
 import Material from "../Material";
+import RenderComponent from "../RenderComponent";
 
 /**
  * just draw geometry in a plain pink color
@@ -106,13 +107,13 @@ export default class TextureShader extends Shader {
 		};
 	}
 
-	render(e: Engine, info: ShaderVAOInfo, material: Material) {
+	render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent) {
 
 		const gl = e.gl;
 
 		this.use();
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
-		material.definition.diffuse.enableAsUnit(gl, 0);
+		rc.getMaterial().definition.diffuse.enableAsUnit(gl, 0);
 		this.set1I("uTextureSampler", 0);
 		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 

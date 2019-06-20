@@ -2,6 +2,7 @@ import Shader, {ShaderVAOInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
 import Engine from "../Engine";
 import Material from "../Material";
+import RenderComponent from "../RenderComponent";
 
 /**
  * just draw geometry in a plain pink color
@@ -42,7 +43,7 @@ export default class NullShader extends Shader {
 		this.setMatrix4fv("uModelView", false, Matrix4.create());
 	}
 
-	render(e: Engine, info: ShaderVAOInfo, material: Material) {
+	render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent) {
 	}
 
 	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number): ShaderVAOInfo {

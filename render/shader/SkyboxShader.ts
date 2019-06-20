@@ -1,6 +1,7 @@
 import Shader, {ShaderVAOInfo} from "./Shader";
 import Engine from "../Engine";
 import Material from "../Material";
+import RenderComponent from "../RenderComponent";
 
 /**
  * Skybox shader which draws a cubemap onto a cube.
@@ -89,7 +90,7 @@ export default class SkyboxShader extends Shader {
 		}
 	}
 
-	render(e: Engine, info: ShaderVAOInfo, material: Material) {
+	render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent) {
 
 		const gl = e.gl;
 
@@ -97,7 +98,7 @@ export default class SkyboxShader extends Shader {
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
 		this.setMatrix4fv("uView", false, e.viewMatrix());
 
-		material.definition.diffuse.enableAsUnit(gl, 0);
+		rc.getMaterial().definition.diffuse.enableAsUnit(gl, 0);
 		this.set1I("uSampler", 0);
 
 		gl.depthFunc(gl.LEQUAL);	// trick depth

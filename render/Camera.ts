@@ -34,14 +34,16 @@ export default class Camera {
 		Vector3.copy(this.position, pos);
 		Vector3.copy(this.forward, forward);
 		Vector3.copy(this.up, up);
-		this.lookAt();
 
 		this.yaw = 180/Math.PI*Math.atan2(forward[2], forward[0]);
-		this.pitch = 180/Math.PI*Math.asin(forward[1]);
+		this.pitch =
+			180/Math.PI*Math.asin(forward[1]);
+		this.sync();
 
+		return this;
 	}
 
-	lookAt() {
+	sync() {
 		if (this.advanceAmount!==0) {
 			this.advance(this.advanceAmount*.25);
 		}
@@ -53,6 +55,10 @@ export default class Camera {
 		}
 		Matrix4.lookAt(this.matrix, this.position, Vector3.add(v0, this.position, this.forward), this.up);
 		Matrix4.viewMatrix(this.viewMatrix, this.matrix);
+	}
+
+	lookAt(x: number, y: number, z: number) {
+		Vector3.set(this.forward, x, y, z);
 	}
 
 	advance(amount: number) {
