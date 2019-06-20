@@ -120,23 +120,27 @@ export default class Matrix4 {
 		return out;
 	}
 
-	static identity(out: Float32Array) : Float32Array {
-		out[0] = 1.0;
-		out[1] = 0.0;
-		out[2] = 0.0;
-		out[3] = 0.0;
-		out[4] = 0.0;
-		out[5] = 1.0;
-		out[6] = 0.0;
-		out[7] = 0.0;
-		out[8] = 0.0;
-		out[9] = 0.0;
-		out[10] = 1.0;
-		out[11] = 0.0;
-		out[12] = 0.0;
-		out[13] = 0.0;
-		out[14] = 0.0;
-		out[15] = 1.0;
+	static identity(out: Float32Array, offset?: number) : Float32Array {
+
+		offset = offset || 0;
+
+		out[offset+0] = 1.0;
+		out[offset+1] = 0.0;
+		out[offset+2] = 0.0;
+		out[offset+3] = 0.0;
+		out[offset+4] = 0.0;
+		out[offset+5] = 1.0;
+		out[offset+6] = 0.0;
+		out[offset+7] = 0.0;
+		out[offset+8] = 0.0;
+		out[offset+9] = 0.0;
+		out[offset+10] = 1.0;
+		out[offset+11] = 0.0;
+		out[offset+12] = 0.0;
+		out[offset+13] = 0.0;
+		out[offset+14] = 0.0;
+		out[offset+15] = 1.0;
+
 		return out;
 	}
 

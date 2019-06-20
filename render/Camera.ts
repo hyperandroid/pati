@@ -10,7 +10,7 @@ function radians(v) : number {
 
 export default class Camera {
 
-	private readonly position: Float32Array;
+	readonly position: Float32Array;
 	private readonly forward : Float32Array;
 	private readonly up: Float32Array;
 
@@ -28,18 +28,22 @@ export default class Camera {
 		this.position = Vector3.createFromCoords(0,0,3);
 		this.forward = Vector3.createFromCoords(0,0,0);
 		this.up = Vector3.createFromCoords(0,1,0);
-
-		this.anglesFrom(0,0);
 	}
 
 	setup(pos: Float32Array, forward: Float32Array, up: Float32Array) {
 		Vector3.copy(this.position, pos);
-		Vector3.copy(this.forward, Vector3.normalize(v0,forward));
-		Vector3.copy(this.up, Vector3.normalize(v0,up));
-		this.anglesFrom(0,0);
+		Vector3.copy(this.forward, forward);
+		Vector3.copy(this.up, up);
+
+		this.yaw = 180/Math.PI*Math.atan2(forward[2], forward[0]);
+		this.pitch =
+			180/Math.PI*Math.asin(forward[1]);
+		this.sync();
+
+		return this;
 	}
 
-	lookAt() {
+	sync() {
 		if (this.advanceAmount!==0) {
 			this.advance(this.advanceAmount*.25);
 		}
@@ -51,6 +55,10 @@ export default class Camera {
 		}
 		Matrix4.lookAt(this.matrix, this.position, Vector3.add(v0, this.position, this.forward), this.up);
 		Matrix4.viewMatrix(this.viewMatrix, this.matrix);
+	}
+
+	lookAt(x: number, y: number, z: number) {
+		Vector3.set(this.forward, x, y, z);
 	}
 
 	advance(amount: number) {

@@ -2,12 +2,13 @@ import Vector3 from "../math/Vector3";
 import Matrix4 from "../math/Matrix4";
 import RenderComponent from "./RenderComponent";
 import Engine from "./Engine";
+import {ShaderVAOInfo} from "./shader/Shader";
+import Material, {MaterialType} from "./Material";
 
 export default class Mesh implements RenderComponent {
 
-	vao : WebGLVertexArrayObject;
-	indexed = false;
-	numVertices = 0;
+	material: Material = null;
+	shaderInfo: ShaderVAOInfo = null;
 
 	position = Vector3.createFromCoords(0,0,0);
 	rotation = Vector3.createFromCoords(0,0,0);
@@ -35,78 +36,105 @@ export default class Mesh implements RenderComponent {
 	 *  stride of (coords per vertex)*sizeof(FLOAT) = (3*4), offset 0
 	 *  stride of (coords per vertex uv)*sizeof(FLOAT) = (2*4), offset num_vertices * sizeof(FLOAT)
 	 *
-	 * @param gl WebGL2RenderingContext
-	 * @param vertices an array of vertex data. Contains x,y,z info per vertex.
-	 * @param uv an array of vertex data. Contains x,y,z info per vertex.
-	 * @param index optional array of index data.
 	 */
-	static from(gl: WebGL2RenderingContext, vertices: number[], uv: number[], index?: number[], instanceCount?: number) : Mesh {
+	from(e: Engine, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number) {
 
-		const m = new Mesh();
+		this.material = material;
 
-		const vao = gl.createVertexArray();
-		gl.bindVertexArray(vao);
+		const gl = e.gl;
 
-		// warn: use layout location 0 in shader for geometry.
-		// gl.enableVertexAttribArray(0);
-		// warn: use layout location 1 in shader for texture data.
-		// gl.enableVertexAttribArray(1);
+		switch(material.type) {
+			case MaterialType.REFLECTIVE:
+				this.shaderInfo = e.getShader("reflectiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
+				break;
+			case MaterialType.REFRACTIVE:
+				this.shaderInfo = e.getShader("refractiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
+				break;
+			case MaterialType.TEXTURE:
+				this.shaderInfo = e.getShader("texture").createVAO(gl, vertices, uv, index, material, instanceCount);
+				break;
+			case MaterialType.SKYBOX:
+				this.shaderInfo = e.getShader("skybox").createVAO(gl, vertices, uv, index, material, instanceCount);
+				break;
+			default:
+				throw new Error(`Unknown material type. ${material}`);
+		}
+	}
 
-		const allGeometryAndUVDataBuffer = new Float32Array(vertices.length + uv.length);
-		allGeometryAndUVDataBuffer.set(vertices);
-		allGeometryAndUVDataBuffer.set(uv, vertices.length);
+	private generateNormals(vertices: Float32Array, index: Uint16Array) : Float32Array {
+		const v0 = Vector3.create();
+		const v1 = Vector3.create();
+		const v2 = Vector3.create();
+		const v3 = Vector3.create();
+		const v4 = Vector3.create();
+		const v5 = Vector3.create();
 
-		const bufferGeometryAndUV = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, bufferGeometryAndUV);
-		gl.bufferData(gl.ARRAY_BUFFER, allGeometryAndUVDataBuffer, gl.STATIC_DRAW);
+		let normals: Float32Array = new Float32Array(vertices.length);;
 
-		gl.enableVertexAttribArray(0);
-		gl.enableVertexAttribArray(1);
-		gl.enableVertexAttribArray(2);
-		gl.enableVertexAttribArray(3);
-		gl.enableVertexAttribArray(4);
-		gl.enableVertexAttribArray(5);
+		if (index !== null) {
 
-		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 3*4, 0);
-		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 2*4, 4*vertices.length);
-		gl.vertexAttribDivisor(0,0);
-		gl.vertexAttribDivisor(1,0);
+			for (let i = 0; i < index.length; i += 3) {
+				const v0i = index[i] * 3;
+				const v1i = index[i + 1] * 3;
+				const v2i = index[i + 2] * 3;
 
-		// warn: use layout location 2 in shader for model transform.
-		// gl.enableVertexAttribArray(2);
-		instanceCount = instanceCount || 1;
+				Vector3.set(v0, vertices[v0i], vertices[v0i + 1], vertices[v0i + 2]);
+				Vector3.set(v1, vertices[v1i], vertices[v1i + 1], vertices[v1i + 2]);
+				Vector3.set(v2, vertices[v2i], vertices[v2i + 1], vertices[v2i + 2]);
 
-		const instancedModelTransform = new Float32Array(16*instanceCount);
-		const glInstancedModelTransformBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, glInstancedModelTransformBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, instancedModelTransform, gl.DYNAMIC_DRAW);
-		m.instancedTransform = glInstancedModelTransformBuffer;
+				Vector3.sub(v3, v0, v1);
+				Vector3.sub(v4, v0, v2);
 
-		gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 16*4, 0);
-		gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 16*4, 16);
-		gl.vertexAttribPointer(4, 4, gl.FLOAT, false, 16*4, 32);
-		gl.vertexAttribPointer(5, 4, gl.FLOAT, false, 16*4, 48);
-		gl.vertexAttribDivisor(2,1);
-		gl.vertexAttribDivisor(3,1);
-		gl.vertexAttribDivisor(4,1);
-		gl.vertexAttribDivisor(5,1);
+				Vector3.cross(v5, v4, v3);	// normal
 
-		if (index!==void 0) {
-			const bufferIndex = gl.createBuffer();
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferIndex);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
-			m.indexed = true;
-			m.numVertices = index.length;
+				normals[v0i] += v5[0];
+				normals[v0i + 1] += v5[1];
+				normals[v0i + 2] += v5[2];
+				normals[v1i] += v5[0];
+				normals[v1i + 1] += v5[1];
+				normals[v1i + 2] += v5[2];
+				normals[v2i] += v5[0];
+				normals[v2i + 1] += v5[1];
+				normals[v2i + 2] += v5[2];
+			}
+
 		} else {
-			m.numVertices = (vertices.length /3)|0;
+
+			for(let i = 0; i<vertices.length; i+=9) {
+				const v0i = i ;
+				const v1i = i + 3;
+				const v2i = i + 6;
+
+				Vector3.set(v0, vertices[v0i], vertices[v0i + 1], vertices[v0i + 2]);
+				Vector3.set(v1, vertices[v1i], vertices[v1i + 1], vertices[v1i + 2]);
+				Vector3.set(v2, vertices[v2i], vertices[v2i + 1], vertices[v2i + 2]);
+
+				Vector3.sub(v3, v0, v1);
+				Vector3.sub(v4, v0, v2);
+
+				Vector3.cross(v5, v3, v4);	// normal
+
+				normals[i] += v5[0];
+				normals[i + 1] += v5[1];
+				normals[i + 2] += v5[2];
+				normals[i + 3] += v5[0];
+				normals[i + 4] += v5[1];
+				normals[i + 5] += v5[2];
+				normals[i + 6] += v5[0];
+				normals[i + 7] += v5[1];
+				normals[i + 8] += v5[2];
+			}
 		}
 
-		gl.bindVertexArray(null);
+		// normalize.
+		for (let i = 0; i < normals.length; i += 3) {
+			const v = Math.sqrt(normals[i] * normals[i] + normals[i + 1] * normals[i + 1] + normals[i + 2] * normals[i + 2]);
+			normals[i] /= v;
+			normals[i + 1] /= v;
+			normals[i + 2] /= v;
+		}
 
-		m.instanceCount = instanceCount;
-		m.vao = vao;
-
-		return m;
+		return normals;
 	}
 
 	transformMatrix() : Float32Array {
@@ -121,34 +149,37 @@ export default class Mesh implements RenderComponent {
 	}
 
 	render(e: Engine) {
-
-		this.transformMatrix();
 		this.renderInstanced(e, this.transform, 1);
 	}
 
 	renderInstanced(e: Engine, locals: Float32Array, numInstances: number) {
 
+		this.transformMatrix();
 		const gl = e.gl;
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.instancedTransform);
+		// bugbug, should be checked on shader.
+		if (null!==this.shaderInfo.instanceBuffer) {
+			// update instances info if needed.
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.instanceBuffer);
 
-		// check for locals info room in current instance info buffer.
-		if (numInstances > this.instanceCount) {
-			gl.bufferData(gl.ARRAY_BUFFER, locals, gl.DYNAMIC_DRAW);
-			this.instanceCount = numInstances;
-		} else {
-			gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
+			// check for locals info room in current instance info buffer.
+			if (numInstances > this.shaderInfo.instanceCount) {
+				gl.bufferData(gl.ARRAY_BUFFER, locals, gl.DYNAMIC_DRAW);
+				this.shaderInfo.instanceCount = numInstances;
+			} else {
+				gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
+			}
 		}
 
-		gl.bindVertexArray(this.vao);
+		this.shaderInfo.shader.render(e, this.shaderInfo, this);
+	}
 
-		if (this.indexed) {
-			gl.drawElementsInstanced(gl.TRIANGLES, this.numVertices, gl.UNSIGNED_SHORT, 0, numInstances);
-		} else {
-			gl.drawArraysInstanced(gl.TRIANGLES, 0, this.numVertices, numInstances);
-		}
+	getMaterial() {
+		return this.material;
+	}
 
-		gl.bindVertexArray(null);
+	getMatrix() {
+		return this.transformMatrix();
 	}
 
 	euler(x: number, y: number, z: number) {

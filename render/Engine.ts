@@ -7,24 +7,29 @@ import TextureShader from "./shader/TextureShader";
 import Vector3 from "../math/Vector3";
 import Camera from "./Camera";
 import SkyboxShader from "./shader/SkyboxShader";
-import {CubeIndexed} from "./geometry/CubeIndexed";
+import {Cube} from "./geometry/Cube";
 import RenderComponent from "./RenderComponent";
-import Skybox from "./geometry/Skybox";
+import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
+import Material from "./Material";
+import Surface from "./Surface";
+import Mesh from "./Mesh";
 
-const N = 256;
+const N = 64;
 
 export default class Engine {
 
-	private readonly width: number;
-	private readonly height: number;
+	renderWidth: number;
+	renderHeight: number;
 
 	readonly gl: WebGL2RenderingContext;
 	private shader : {[key: string]:Shader} = {};
 	private mesh: {[key: string]:RenderComponent} = {};
 	private texture: {[key: string]:Texture} = {};
+	private surface: {[key: string]:Surface} = {};
+	private camera: {[key: string]:Camera} = {};
 
-	private readonly perspective = Matrix4.create();
-	private readonly camera = new Camera();
+	private perspective = Matrix4.create();
+	private currentCamera: Camera;
 
 	private time = 0;
 
@@ -37,23 +42,52 @@ export default class Engine {
 	constructor(w: number, h: number) {
 		Platform.initialize(w, h);
 
-		const gl = Platform.glContext;
-		this.gl = gl;
+		this.gl = Platform.glContext;
 
-		this.width = w;
-		this.height = h;
+		this.resize(w, h, true);
+	}
 
-		this.perspective = Matrix4.perspective(this.perspective, 70*Math.PI/180, w / h, .01, 1000);
+	init() {
+		const gl = this.gl;
+
+		this.currentCamera = new Camera();
+		this.camera["camera0"] = this.currentCamera;
+		this.camera["camera1"] = new Camera().setup(
+				new Float32Array([0, 0, 2]),
+				new Float32Array([0, 0, -1]),
+				new Float32Array([0, 1, 0]));
 
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
 		this.shader["skybox"] = new SkyboxShader(gl);
+		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
+		this.shader["refractiveEnvMap"] = new EnvironmentMapShader(gl, true);
 
-		this.mesh["cube"] = CubeIndexed(gl);
-		this.mesh["skybox"] = new Skybox(gl);
+		this.surface["surface0"] = new Surface(this, {
+			width: 1024,
+			height: 1024,
+			attachments: [
+				{
+					renderBufferTarget: gl.DEPTH_STENCIL_ATTACHMENT,
+					renderBufferInternalFormat: gl.DEPTH24_STENCIL8
+				},
+				{
+					renderBufferTarget: gl.COLOR_ATTACHMENT0,
+					textureDefinition: {
+						width: 1024,
+						height: 1024,
+					}
+				}
+			]
+		});
 
-		this.camera.setup(
-			new Float32Array([0, 25, 27]),
+		this.mesh["cube2"] = new Cube(this, Material.Texture(this.getTexture("texture0")), false);
+
+		this.mesh["cube"] = new Cube(this, Material.Texture(this.surface["surface0"].texture), false, N*N);
+		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
+
+		this.currentCamera.setup(
+			new Float32Array([0, 25, -10]),
 			new Float32Array([0, 0, -20]),
 			new Float32Array([0, 1, 0]));
 
@@ -67,7 +101,7 @@ export default class Engine {
 			const t = ((this.time%tt))/(tt/2)*Math.PI;
 			Vector3.set(this.position, (col-((N-1)/2))*3, 30*Math.sin(2*Math.PI/N*col + t)*Math.cos(2*Math.PI/N*row + t), -row*3);
 			// Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
-			Vector3.set(this.rotation, Math.random()*2*Math.PI, Math.random()*Math.PI, 0);
+			// Vector3.set(this.rotation, Math.random()*2*Math.PI, Math.random()*Math.PI, 0);
 			Vector3.set(this.scale, 2,2,2);
 			this.matrices.set(
 				Matrix4.modelMatrix(
@@ -78,6 +112,21 @@ export default class Engine {
 				i*16);
 		}
 
+	}
+
+	resize(w: number, h: number, force?: boolean) {
+		if (force || Platform.canvas.width!==w || Platform.canvas.height!==h) {
+			Platform.canvas.width = w;
+			Platform.canvas.height = h;
+			this.renderSurfaceSize(w, h);
+		}
+	}
+
+	renderSurfaceSize(w: number, h: number) {
+		this.renderWidth = w;
+		this.renderHeight = h;
+		this.perspective = Matrix4.perspective(this.perspective, 70 * Math.PI / 180, w / h, .01, 1000);
+		this.gl.viewport(0,0,w,h);
 	}
 
 	getShader(s: string) : Shader {
@@ -97,11 +146,15 @@ export default class Engine {
 	}
 
 	cameraMatrix() : Float32Array {
-		return this.camera.matrix;
+		return this.currentCamera.matrix;
+	}
+
+	cameraPosition() : Float32Array {
+		return this.currentCamera.position;
 	}
 
 	viewMatrix() : Float32Array {
-		return this.camera.viewMatrix;
+		return this.currentCamera.viewMatrix;
 	}
 
 	private initializeGraphics() {
@@ -112,48 +165,48 @@ export default class Engine {
 
 	render(delta: number) {
 
+		this.surface["surface0"].enableAsTextureTarget(this);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		this.currentCamera = this.camera["camera1"];
+		this.currentCamera.sync();
+		(this.mesh["cube2"] as Mesh).euler( this.time/500, this.time/1020, -this.time/2400);
+		this.mesh["cube2"].render(this);
+		this.mesh["skybox"].render(this);
 
-		this.gl.viewport(0, 0, this.width, this.height);
-		this.camera.lookAt();
-
-		const ns = this.shader["texture"];
-		ns.use();
-		ns.setMatrix4fv("uProjection", false, this.perspective);
-		this.texture["texture0"].enableAsUnit(this.gl, 0);
-		ns.set1I("uTextureSampler", 0);
-		ns.setMatrix4fv("uModelView", false, this.camera.matrix);
+		this.surface["surface0"].disableAsTextureTarget(this);
+		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		this.currentCamera = this.camera["camera0"];
+		this.currentCamera.sync();
 		this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
-		ns.notUse();
-
 		this.mesh["skybox"].render(this);
 
 		this.time += delta;
 	}
 
 	mouseEvent(pixelsIncrementX: number,pixelsIncrementY: number) {
-		this.camera.anglesFrom(pixelsIncrementX,pixelsIncrementY);
+		this.camera["camera0"].anglesFrom(pixelsIncrementX,pixelsIncrementY);
 	}
 
 	keyboardEvent(key: string, down: boolean) {
+		const c = this.camera["camera0"];
 		switch(key) {
 			case 'w':
-				this.camera.advanceAmount = down ? 1 : 0;
+				c.advanceAmount = down ? 1 : 0;
 				break;
 			case 's':
-				this.camera.advanceAmount = down ? -1 : 0;
+				c.advanceAmount = down ? -1 : 0;
 				break;
 			case 'a':
-				this.camera.strafeAmount = down ? -1 : 0;
+				c.strafeAmount = down ? -1 : 0;
 				break;
 			case 'd':
-				this.camera.strafeAmount = down ? 1 : 0;
+				c.strafeAmount = down ? 1 : 0;
 				break;
 			case 'q':
-				this.camera.upAmount = down ? -1 : 0;
+				c.upAmount = down ? -1 : 0;
 				break;
 			case 'z':
-				this.camera.upAmount = down ? 1 : 0;
+				c.upAmount = down ? 1 : 0;
 				break;
 		}
 	}

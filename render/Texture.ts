@@ -73,7 +73,7 @@ export default class Texture {
 			info.type = gl.UNSIGNED_BYTE;
 		}
 
-		if (info.element!==null) {
+		if (info.element) {
 
 			if (Array.isArray(info.element)) {
 				if (info.target===gl.TEXTURE_CUBE_MAP) {
@@ -159,6 +159,8 @@ export default class Texture {
 		if (info.target===gl.TEXTURE_CUBE_MAP) {
 			gl.texParameteri(info.target, gl.TEXTURE_WRAP_R, info.wrap_mode);
 		}
+
+		gl.bindTexture(texture.target, null);
 
 		return texture;
 	}

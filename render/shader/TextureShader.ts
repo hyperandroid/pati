@@ -1,5 +1,8 @@
-import Shader from "./Shader";
+import Shader, {ShaderVAOInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
+import Engine from "../Engine";
+import Material from "../Material";
+import RenderComponent from "../RenderComponent";
 
 /**
  * just draw geometry in a plain pink color
@@ -52,12 +55,6 @@ export default class TextureShader extends Shader {
 		const gl = this._gl;
 
 		gl.useProgram(this._shaderProgram);
-		gl.enableVertexAttribArray(0);
-		gl.enableVertexAttribArray(1);
-		gl.enableVertexAttribArray(2);
-		gl.enableVertexAttribArray(3);
-		gl.enableVertexAttribArray(4);
-		gl.enableVertexAttribArray(5);
 	}
 
 	notUse() {
@@ -71,5 +68,64 @@ export default class TextureShader extends Shader {
 		gl.disableVertexAttribArray(5);
 
 		gl.useProgram(null);
+	}
+
+	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount?: number) : ShaderVAOInfo {
+
+		const vao = gl.createVertexArray();
+		gl.bindVertexArray(vao);
+
+		for(let i = 0; i < 5; i++) {
+			gl.enableVertexAttribArray(i);
+		}
+
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(vertices), 12, 0);
+		const glUVBuffer = Shader.createAttributeInfo(gl, 1, new Float32Array(uv), 8, 0);
+		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount || 1, 2);
+
+		let glBufferIndex: WebGLBuffer = null;
+		let vertexCount = (vertices.length/3)|0;
+		if (index!==null) {
+			glBufferIndex = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
+			vertexCount = index.length;
+		}
+
+		gl.bindVertexArray(null);
+
+		return {
+			shader: this,
+			vao,
+			geometryBuffer: glGeometryBuffer,
+			uvBuffer: glUVBuffer,
+			indexBuffer: glBufferIndex,
+			instanceBuffer: glInstancedModelTransformBuffer,
+			vertexCount: vertexCount,
+			instanceCount: instanceCount,
+			normalBuffer: null,
+		};
+	}
+
+	render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent) {
+
+		const gl = e.gl;
+
+		this.use();
+		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
+		rc.getMaterial().definition.diffuse.enableAsUnit(gl, 0);
+		this.set1I("uTextureSampler", 0);
+		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
+
+		gl.bindVertexArray(info.vao);
+
+		if (info.indexBuffer!==null) {
+			gl.drawElementsInstanced(gl.TRIANGLES, info.vertexCount, gl.UNSIGNED_SHORT, 0, info.instanceCount);
+		} else {
+			gl.drawArraysInstanced(gl.TRIANGLES, 0, info.vertexCount, info.instanceCount);
+		}
+
+		gl.bindVertexArray(null);
+		this.notUse();
 	}
 }

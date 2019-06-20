@@ -7,7 +7,14 @@ enum MaterialTexture {
 	DISPLACEMENT
 };
 
-export interface MaterialInitializer {
+export enum MaterialType {
+	SKYBOX,
+	TEXTURE,
+	REFLECTIVE,
+	REFRACTIVE
+}
+
+export interface MaterialDefinition {
 	diffuse: Texture;
 
 	specularIntentisy? : number;
@@ -21,12 +28,35 @@ export interface MaterialInitializer {
 
 export default class Material {
 
-	// textures map. keys
-	textures = new Map<MaterialTexture, Texture>();
+	readonly definition: MaterialDefinition;
+	readonly type: MaterialType;
 
-	private readonly definition: MaterialInitializer;
+	private constructor(t: MaterialType, def?: MaterialDefinition) {
+		this.type = t;
+		this.definition = def;
+	}
 
-	constructor(init: MaterialInitializer) {
-		this.definition = init;
+	static Reflective(t: Texture) {
+		return new Material(MaterialType.REFLECTIVE, {
+			diffuse: t,
+		});
+	}
+
+	static Refractive(t: Texture) {
+		return new Material(MaterialType.REFRACTIVE, {
+			diffuse: t,
+		});
+	}
+
+	static Skybox(texture: Texture) {
+		return new Material(MaterialType.SKYBOX, {
+			diffuse: texture,
+		});
+	}
+
+	static Texture(texture: Texture) {
+		return new Material(MaterialType.TEXTURE, {
+			diffuse: texture,
+		});
 	}
 }
