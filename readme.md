@@ -8,6 +8,8 @@ They teach me everyday lots of things. So makes sense to name this project Pati,
 + npm install
 + ./build.sh
 
+A local web server can be started with `npm run serve`
+
 open index.html from a local web server.
 
 # lessons learnt
