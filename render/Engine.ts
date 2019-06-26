@@ -64,8 +64,8 @@ export default class Engine {
 		this.shader["refractiveEnvMap"] = new EnvironmentMapShader(gl, true);
 
 		this.surface["surface0"] = new Surface(this, {
-			width: 1024,
-			height: 1024,
+			width: 256,
+			height: 256,
 			attachments: [
 				{
 					renderBufferTarget: gl.DEPTH_STENCIL_ATTACHMENT,
@@ -74,8 +74,7 @@ export default class Engine {
 				{
 					renderBufferTarget: gl.COLOR_ATTACHMENT0,
 					textureDefinition: {
-						width: 512,
-						height: 512,
+						// default. size will be set as Surface size.
 					}
 				}
 			]

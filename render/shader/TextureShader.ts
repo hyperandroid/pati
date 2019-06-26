@@ -1,4 +1,4 @@
-import Shader, {ShaderVAOInfo} from "./Shader";
+import Shader, {ShaderVAOInfo, VAOGeometryInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
 import Engine from "../Engine";
 import Material from "../Material";
@@ -70,7 +70,7 @@ export default class TextureShader extends Shader {
 		gl.useProgram(null);
 	}
 
-	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount?: number) : ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, geometryInfo: VAOGeometryInfo, material: Material) : ShaderVAOInfo {
 
 		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
@@ -79,17 +79,19 @@ export default class TextureShader extends Shader {
 			gl.enableVertexAttribArray(i);
 		}
 
-		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(vertices), 12, 0);
-		const glUVBuffer = Shader.createAttributeInfo(gl, 1, new Float32Array(uv), 8, 0);
-		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount || 1, 2);
+		const instanceCount = geometryInfo.instanceCount || 1;
+
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(geometryInfo.vertex), 12, 0);
+		const glUVBuffer = Shader.createAttributeInfo(gl, 1, new Float32Array(geometryInfo.uv), 8, 0);
+		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 2);
 
 		let glBufferIndex: WebGLBuffer = null;
-		let vertexCount = (vertices.length/3)|0;
-		if (index!==null) {
+		let vertexCount = (geometryInfo.vertex.length/3)|0;
+		if (geometryInfo.index) {
 			glBufferIndex = gl.createBuffer();
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
-			vertexCount = index.length;
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometryInfo.index), gl.STATIC_DRAW);
+			vertexCount = geometryInfo.index.length;
 		}
 
 		gl.bindVertexArray(null);
@@ -102,7 +104,7 @@ export default class TextureShader extends Shader {
 			indexBuffer: glBufferIndex,
 			instanceBuffer: glInstancedModelTransformBuffer,
 			vertexCount: vertexCount,
-			instanceCount: instanceCount,
+			instanceCount,
 			normalBuffer: null,
 		};
 	}

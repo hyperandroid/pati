@@ -43,25 +43,46 @@ export default class Mesh implements RenderComponent {
 
 		const gl = e.gl;
 
-		switch(material.type) {
+		switch (material.type) {
 			case MaterialType.REFLECTIVE:
-				this.shaderInfo = e.getShader("reflectiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
+				this.shaderInfo = e.getShader("reflectiveEnvMap").createVAO(gl, {
+					vertex: vertices,
+					normal: this.generateNormals(vertices, index),
+					index,
+					instanceCount
+				}, material);
 				break;
 			case MaterialType.REFRACTIVE:
-				this.shaderInfo = e.getShader("refractiveEnvMap").createVAO(gl, vertices, this.generateNormals(vertices, index), index, material, instanceCount);
+				this.shaderInfo = e.getShader("refractiveEnvMap").createVAO(gl, {
+					vertex: vertices,
+					normal: this.generateNormals(vertices, index),
+					index,
+					instanceCount
+				}, material);
 				break;
 			case MaterialType.TEXTURE:
-				this.shaderInfo = e.getShader("texture").createVAO(gl, vertices, uv, index, material, instanceCount);
+				this.shaderInfo = e.getShader("texture").createVAO(gl, {
+					vertex: vertices,
+					uv,
+					normal: this.generateNormals(vertices, index),
+					index,
+					instanceCount
+				}, material);
 				break;
 			case MaterialType.SKYBOX:
-				this.shaderInfo = e.getShader("skybox").createVAO(gl, vertices, uv, index, material, instanceCount);
+				this.shaderInfo = e.getShader("skybox").createVAO(gl, {
+					vertex: vertices,
+					uv,
+					index,
+					instanceCount
+				}, material);
 				break;
 			default:
 				throw new Error(`Unknown material type. ${material}`);
 		}
 	}
 
-	private generateNormals(vertices: Float32Array, index: Uint16Array) : Float32Array {
+	private generateNormals(vertices: Float32Array, index?: Uint16Array) : Float32Array {
 		const v0 = Vector3.create();
 		const v1 = Vector3.create();
 		const v2 = Vector3.create();
@@ -71,7 +92,7 @@ export default class Mesh implements RenderComponent {
 
 		let normals: Float32Array = new Float32Array(vertices.length);;
 
-		if (index !== null) {
+		if (index) {
 
 			for (let i = 0; i < index.length; i += 3) {
 				const v0i = index[i] * 3;

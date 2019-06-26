@@ -1,4 +1,4 @@
-import Shader, {ShaderVAOInfo} from "./Shader";
+import Shader, {ShaderVAOInfo, VAOGeometryInfo} from "./Shader";
 import Engine from "../Engine";
 import Material from "../Material";
 import RenderComponent from "../RenderComponent";
@@ -57,18 +57,18 @@ export default class SkyboxShader extends Shader {
 		})
 	}
 
-	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount?: number) : ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, geometryInfo: VAOGeometryInfo, material: Material) : ShaderVAOInfo {
 
 		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
 
 
-		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(vertices), 12, 0);
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(geometryInfo.vertex), 12, 0);
 
 		let glBufferIndex = gl.createBuffer();
-		let vertexCount = index.length;
+		let vertexCount = geometryInfo.index.length;
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometryInfo.index), gl.STATIC_DRAW);
 
 		gl.enableVertexAttribArray(0);
 		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);

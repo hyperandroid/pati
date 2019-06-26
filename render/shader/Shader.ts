@@ -24,6 +24,14 @@ export interface ShaderVAOInfo {
 	instanceCount: number;
 }
 
+export interface VAOGeometryInfo {
+	vertex: Float32Array;
+	uv?: Float32Array;
+	normal?: Float32Array;
+	index?: Uint16Array;
+	instanceCount?: number;
+}
+
 /**
  *
  */
@@ -197,5 +205,5 @@ export default abstract class Shader {
 		return buffer;
 	}
 
-	abstract createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number): ShaderVAOInfo;
+	abstract createVAO(gl: WebGL2RenderingContext, geomVAO: VAOGeometryInfo, material: Material): ShaderVAOInfo;
 }

@@ -1,4 +1,4 @@
-import Shader, {ShaderVAOInfo} from "./Shader";
+import Shader, {ShaderVAOInfo, VAOGeometryInfo} from "./Shader";
 import Matrix4 from "../../math/Matrix4";
 import Engine from "../Engine";
 import Material from "../Material";
@@ -46,7 +46,7 @@ export default class NullShader extends Shader {
 	render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent) {
 	}
 
-	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number): ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, geometryInfo: VAOGeometryInfo, material: Material): ShaderVAOInfo {
 		return null;
 	}
 }

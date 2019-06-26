@@ -1,4 +1,4 @@
-import Shader, {ShaderVAOInfo} from "./Shader";
+import Shader, {ShaderVAOInfo, VAOGeometryInfo} from "./Shader";
 import Engine from "../Engine";
 import Material from "../Material";
 import RenderComponent from "../RenderComponent";
@@ -103,9 +103,9 @@ export class EnvironmentMapShader extends Shader {
 		this.notUse();
 	}
 
-	createVAO(gl: WebGL2RenderingContext, vertices: Float32Array, normal: Float32Array, index: Uint16Array, material: Material, instanceCount: number) : ShaderVAOInfo {
+	createVAO(gl: WebGL2RenderingContext, geometryInfo: VAOGeometryInfo, material: Material) : ShaderVAOInfo {
 
-		instanceCount = instanceCount || 1;
+		const instanceCount = geometryInfo.instanceCount || 1;
 
 		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
@@ -114,16 +114,16 @@ export class EnvironmentMapShader extends Shader {
 			gl.enableVertexAttribArray(i);
 		}
 
-		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, vertices, 12, 0);
-		const glNormalBuffer = Shader.createAttributeInfo(gl, 1, normal, 12, 0);
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
+		const glNormalBuffer = Shader.createAttributeInfo(gl, 1, geometryInfo.normal, 12, 0);
 		const glInstancedModelMatrixBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 2);
 		let glBufferIndex: WebGLBuffer = null;
-		let vertexCount = (vertices.length/3)|0;
-		if (index!==null) {
+		let vertexCount = (geometryInfo.vertex.length/3)|0;
+		if (geometryInfo.index!==null) {
 			glBufferIndex = gl.createBuffer();
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index, gl.STATIC_DRAW);
-			vertexCount = index.length;
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometryInfo.index, gl.STATIC_DRAW);
+			vertexCount = geometryInfo.index.length;
 		}
 
 		// restore null vao
