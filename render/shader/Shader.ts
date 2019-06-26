@@ -157,6 +157,14 @@ export default abstract class Shader {
 		this._gl.uniform3f(this._uniforms[name], v0, v1, v2);
 	}
 
+	set3FV(name: string, b: Float32Array) {
+		this._gl.uniform3fv(this._uniforms[name], b);
+	}
+
+	set4F(name: string, v0: number, v1: number, v2: number, v3: number) {
+		this._gl.uniform4f(this._uniforms[name], v0, v1, v2, v3);
+	}
+
 	set1I(name: string, v: number) {
 		this._gl.uniform1i(this._uniforms[name], v);
 	}

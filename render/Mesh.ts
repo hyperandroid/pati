@@ -130,20 +130,20 @@ export default class Mesh implements RenderComponent {
 				Vector3.set(v1, vertices[v1i], vertices[v1i + 1], vertices[v1i + 2]);
 				Vector3.set(v2, vertices[v2i], vertices[v2i + 1], vertices[v2i + 2]);
 
-				Vector3.sub(v3, v0, v1);
-				Vector3.sub(v4, v0, v2);
+				Vector3.sub(v3, v1, v0);
+				Vector3.sub(v4, v2, v0);
 
 				Vector3.cross(v5, v3, v4);	// normal
 
-				normals[i] += v5[0];
-				normals[i + 1] += v5[1];
-				normals[i + 2] += v5[2];
-				normals[i + 3] += v5[0];
-				normals[i + 4] += v5[1];
-				normals[i + 5] += v5[2];
-				normals[i + 6] += v5[0];
-				normals[i + 7] += v5[1];
-				normals[i + 8] += v5[2];
+				normals[v0i    ] += v5[0];
+				normals[v0i + 1] += v5[1];
+				normals[v0i + 2] += v5[2];
+				normals[v1i    ] += v5[0];
+				normals[v1i + 1] += v5[1];
+				normals[v1i + 2] += v5[2];
+				normals[v2i    ] += v5[0];
+				normals[v2i + 1] += v5[1];
+				normals[v2i + 2] += v5[2];
 			}
 		}
 

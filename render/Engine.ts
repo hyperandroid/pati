@@ -12,9 +12,8 @@ import RenderComponent from "./RenderComponent";
 import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 import Material from "./Material";
 import Surface from "./Surface";
-import Mesh from "./Mesh";
 
-const N = 64;
+const N = 1;
 
 export default class Engine {
 
@@ -144,39 +143,51 @@ export default class Engine {
 
 	render(delta: number) {
 
-		this.surface["surface0"].enableAsTextureTarget(this);
-		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-		this.currentCamera = this.camera["camera1"];
-		this.currentCamera.sync();
-		const u = this.time/1777;
-		Vector3.set(this.currentCamera.position,
-			3*Math.sin(u),
-			Math.sin(u)/3,
-			3*Math.cos(u));
-		this.currentCamera.lookAt(-this.currentCamera.position[0],0,-this.currentCamera.position[2]);
-		this.mesh["cube2"].render(this);
-		this.mesh["skybox"].render(this);
-
-		this.surface["surface0"].disableAsTextureTarget(this);
+		// this.surface["surface0"].enableAsTextureTarget(this);
+		// this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		// this.currentCamera = this.camera["camera1"];
+		// this.currentCamera.sync();
+		// const u = this.time/1777;
+		// Vector3.set(this.currentCamera.position,
+		// 	3*Math.sin(u),
+		// 	Math.sin(u)/3,
+		// 	3*Math.cos(u));
+		// this.currentCamera.lookAt(-this.currentCamera.position[0],0,-this.currentCamera.position[2]);
+		// this.mesh["cube2"].render(this);
+		// this.mesh["skybox"].render(this);
+		//
+		// this.surface["surface0"].disableAsTextureTarget(this);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 		this.currentCamera = this.camera["camera0"];
 		this.currentCamera.sync();
+
+		const st = this.shader["texture"];
+		st.use();
+		st.set1F("uAmbient", .1);
+		st.set3F("uLightColor", 1.0, 1.0, 1.0);
+		st.set3F("uLightPos", 10.0*Math.cos(this.time/10000), 0, 10.0*Math.sin(this.time/10000));
+		st.set3FV("uViewPos", this.camera["camera0"].position);
+		st.notUse();
+
 		this.updateInstancingMatrices();
-		this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
+		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
+		this.mesh["cube2"].renderInstanced(this, this.matrices, N*N);
 		this.mesh["skybox"].render(this);
 
 		this.time += delta;
 	}
 
 	private updateInstancingMatrices() {
+
 		for (let i = 0; i < N * N; i++) {
 			const row = (i / N) | 0;
 			const col = i % N;
 
 			const tt = 125000;
 			const t = ((this.time % tt)) / (tt / 2) * Math.PI;
-			Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 30 * Math.sin(2 * Math.PI / N * col + t) * Math.cos(2 * Math.PI / N * row + t), -row * 3);
-			Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
+			// Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 30 * Math.sin(2 * Math.PI / N * col + t) * Math.cos(2 * Math.PI / N * row + t), -row * 3);
+			// Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
+			Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 0, -row * 3);
 			Vector3.set(this.scale, 2, 2, 2);
 			this.matrices.set(
 				Matrix4.modelMatrix(
