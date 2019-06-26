@@ -173,12 +173,16 @@ export default class Engine {
 
 		const st = this.shader["texture"];
 		st.use();
-		st.set3F("uLightColor", 1.0, 1.0, 1.0);
+		st.set3FV("uViewPos", this.camera["camera0"].position);
+
 		const lx = 10.0*Math.cos(this.time/10000);
 		const ly = 3.0;
 		const lz = 10.0*Math.sin(this.time/10000);
-		st.set3F("uLightPos", lx, ly, lz);
-		st.set3FV("uViewPos", this.camera["camera0"].position);
+		st.set3F("uLight.position", lx, ly, lz);
+		st.set3F("uLight.ambient", .2, .2, .2);
+		st.set3F("uLight.diffuse", 1, 1, 1);
+		st.set3F("uLight.specular", 1, 1, 1);
+
 		st.notUse();
 
 		// this.updateInstancingMatrices();

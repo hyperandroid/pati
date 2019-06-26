@@ -51,14 +51,12 @@ export default class TextureShader extends Shader {
 					vec3 position;
 				  
 					vec3 ambient;
-					vec3 diffuse;
+					vec3 diffuse;	// light color
 					vec3 specular;
 				};								
 				
-				uniform vec3 uLightPos;
-				uniform vec3 uLightColor;
 				uniform vec3 uViewPos;
-				
+				uniform Light uLight;				
 				uniform Material uMaterial;
 				
 				in vec2 vTexturePos;
@@ -69,16 +67,16 @@ export default class TextureShader extends Shader {
 
 				void main() {
 					vec3 norm = normalize(vNormal);
-					vec3 lightDir = normalize(uLightPos - vFragmentPos);
+					vec3 lightDir = normalize(uLight.position - vFragmentPos);
 					
 					vec3 diffuseColor = vec3(texture(uMaterial.diffuse, vTexturePos));
 					
 					// ambient
-					vec3 ambient = uMaterial.ambient * uLightColor * diffuseColor;
+					vec3 ambient = uMaterial.ambient * uLight.ambient * diffuseColor;
 					
 					// diffuse
 					float diff = max(dot(norm, lightDir), 0.0);
-					vec3 diffuse = diff * uLightColor * diffuseColor;
+					vec3 diffuse = diff * uLight.diffuse * diffuseColor;
 					
 					// specular
 					vec3 specular;
@@ -86,7 +84,7 @@ export default class TextureShader extends Shader {
 						vec3 viewDir = normalize(uViewPos - vFragmentPos); 
 						vec3 reflectDir = reflect(norm, lightDir);
 						float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.specularPower);
-						specular = vec3(texture(uMaterial.specular, vTexturePos)) * spec * uLightColor * uMaterial.specularIntensity;
+						specular = vec3(texture(uMaterial.specular, vTexturePos)) * spec * uLight.specular * uMaterial.specularIntensity;
 					}  
 					
 					color = vec4( ambient + diffuse + specular, 1.0 ); 
@@ -96,8 +94,10 @@ export default class TextureShader extends Shader {
 			uniforms: [
 				"uProjection",
 				"uModelView",
-				"uLightPos",
-				"uLightColor",
+				"uLight.position",
+				"uLight.ambient",
+				"uLight.diffuse",
+				"uLight.specular",
 				"uMaterial.ambient",
 				"uMaterial.diffuse",
 				"uMaterial.specular",
@@ -108,6 +108,10 @@ export default class TextureShader extends Shader {
 
 		this.setMatrix4fv("uProjection", false, Matrix4.create());
 		this.setMatrix4fv("uModelView", false, Matrix4.create());
+		this.set3F("uLight.position", 0, 1, 0);
+		this.set3F("uLight.ambient", .2, .2, .2);
+		this.set3F("uLight.diffuse", .5, .5, .5);
+		this.set3F("uLight.specular", 1, 1, 1);
 	}
 
 	use() {
