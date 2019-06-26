@@ -11,13 +11,19 @@ export enum MaterialType {
 	SKYBOX,
 	TEXTURE,
 	REFLECTIVE,
-	REFRACTIVE
+	REFRACTIVE,
+	COLOR
 }
 
 export interface MaterialDefinition {
-	diffuse: Texture;
+	ambient?: number;
 
-	specularIntentisy? : number;
+	diffuse?: Texture;
+
+	color? : Float32Array;
+
+	specular?: Texture;
+	specularIntensity? : number;
 	specularPower? : number;
 
 	normal?: Texture;
@@ -54,9 +60,19 @@ export default class Material {
 		});
 	}
 
-	static Texture(texture: Texture) {
+	static Texture(diffuse: Texture, specular: Texture, ambient: number, specularIntensity: number, specularPower: number) {
 		return new Material(MaterialType.TEXTURE, {
-			diffuse: texture,
+			diffuse,
+			specular,
+			ambient,
+			specularIntensity,
+			specularPower,
 		});
+	}
+
+	static Color(color: Float32Array) {
+		return new Material(MaterialType.COLOR, {
+			color,
+		})
 	}
 }

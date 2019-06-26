@@ -63,12 +63,12 @@ export default class SkyboxShader extends Shader {
 		gl.bindVertexArray(vao);
 
 
-		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(geometryInfo.vertex), 12, 0);
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
 
 		let glBufferIndex = gl.createBuffer();
 		let vertexCount = geometryInfo.index.length;
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometryInfo.index), gl.STATIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometryInfo.index, gl.STATIC_DRAW);
 
 		gl.enableVertexAttribArray(0);
 		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);

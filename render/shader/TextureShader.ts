@@ -31,10 +31,8 @@ export default class TextureShader extends Shader {
 				void main() {
 					gl_Position = uProjection * uModelView * aModel * vec4(aPosition, 1.0);
 					vTexturePos = aTexture;
-					//vNormal = mat3(transpose(inverse(aModel))) * aNormal;	// normal matrix
-					vNormal = vec3(aModel * vec4(aNormal,1.0));
-					vec4 modelt = aModel * vec4(aPosition, 1.0);
-					vFragmentPos = modelt.xyz;
+					vNormal = mat3(transpose(inverse(aModel))) * aNormal;	// normal matrix
+					vFragmentPos = vec3(aModel * vec4(aPosition, 1.0));
 				}
 			`,
 			fragment: `#version 300 es
@@ -42,9 +40,11 @@ export default class TextureShader extends Shader {
 				precision mediump float; 
 
 				struct Material {
+					float     ambient;
 				    sampler2D diffuse;
 				    sampler2D specular;
-				    float     shininess;
+				    float     specularPower;
+				    float     specularIntensity;
 				};  
 				
 				struct Light {
@@ -55,49 +55,55 @@ export default class TextureShader extends Shader {
 					vec3 specular;
 				};								
 				
-				uniform sampler2D uTextureSampler;
-				
-				uniform float uAmbientStrength;
 				uniform vec3 uLightPos;
 				uniform vec3 uLightColor;
 				uniform vec3 uViewPos;
+				
+				uniform Material uMaterial;
 				
 				in vec2 vTexturePos;
 				in vec3 vNormal;
 				in vec3 vFragmentPos;
 
-				
 				out vec4 color;
 
 				void main() {
 					vec3 norm = normalize(vNormal);
-					vec3 lightDir = normalize(uLightPos - vFragmentPos);	// L
+					vec3 lightDir = normalize(uLightPos - vFragmentPos);
+					
+					vec3 diffuseColor = vec3(texture(uMaterial.diffuse, vTexturePos));
 					
 					// ambient
-					vec3 ambient = uAmbientStrength * uLightColor * vec3(texture(uTextureSampler, vTexturePos));
+					vec3 ambient = uMaterial.ambient * uLightColor * diffuseColor;
 					
-					// diffse
+					// diffuse
 					float diff = max(dot(norm, lightDir), 0.0);
-					vec3 diffuse = diff * uLightColor * vec3(texture(uTextureSampler, vTexturePos));
+					vec3 diffuse = diff * uLightColor * diffuseColor;
 					
 					// specular
 					vec3 specular;
 					if (diff>0.0) {
 						vec3 viewDir = normalize(uViewPos - vFragmentPos); 
 						vec3 reflectDir = reflect(norm, lightDir);
-						float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-						specular = specularStrength * spec * uLightColor;
+						float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.specularPower);
+						specular = vec3(texture(uMaterial.specular, vTexturePos)) * spec * uLightColor * uMaterial.specularIntensity;
 					}  
 					
 					color = vec4( ambient + diffuse + specular, 1.0 ); 
-				
 				}
 			`,
 			attributes : ["aPosition", "aTexture", "aNormal", "aModel"],
-			uniforms: ["uProjection", "uModelView", "uTextureSampler", "uAmbientStrength", "uLightPos", "uLightColor"],
-			defines: {
-				"specularStrength": "0.5",
-			}
+			uniforms: [
+				"uProjection",
+				"uModelView",
+				"uLightPos",
+				"uLightColor",
+				"uMaterial.ambient",
+				"uMaterial.diffuse",
+				"uMaterial.specular",
+				"uMaterial.specularPower",
+				"uMaterial.specularIntensity",
+			]
 		});
 
 		this.setMatrix4fv("uProjection", false, Matrix4.create());
@@ -135,9 +141,9 @@ export default class TextureShader extends Shader {
 
 		const instanceCount = geometryInfo.instanceCount || 1;
 
-		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, new Float32Array(geometryInfo.vertex), 12, 0);
-		const glUVBuffer = Shader.createAttributeInfo(gl, 1, new Float32Array(geometryInfo.uv), 8, 0);
-		const glNormalBuffer = Shader.createAttributeInfo(gl, 2, new Float32Array(geometryInfo.normal), 12, 0);
+		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
+		const glUVBuffer = Shader.createAttributeInfo(gl, 1, geometryInfo.uv, 8, 0);
+		const glNormalBuffer = Shader.createAttributeInfo(gl, 2, geometryInfo.normal, 12, 0);
 		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 3);
 
 		let glBufferIndex: WebGLBuffer = null;
@@ -145,7 +151,7 @@ export default class TextureShader extends Shader {
 		if (geometryInfo.index) {
 			glBufferIndex = gl.createBuffer();
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glBufferIndex);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometryInfo.index), gl.STATIC_DRAW);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometryInfo.index, gl.STATIC_DRAW);
 			vertexCount = geometryInfo.index.length;
 		}
 
@@ -170,8 +176,17 @@ export default class TextureShader extends Shader {
 
 		this.use();
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
-		rc.getMaterial().definition.diffuse.enableAsUnit(gl, 0);
-		this.set1I("uTextureSampler", 0);
+
+		const material = rc.getMaterial().definition;
+
+		material.diffuse.enableAsUnit(gl, 0);
+		this.set1I("uMaterial.diffuse", 0);
+		material.specular.enableAsUnit(gl, 1);
+		this.set1I("uMaterial.specular", 1);
+		this.set1F("uMaterial.ambient", material.ambient);
+		this.set1F("uMaterial.specularPower", material.specularPower);
+		this.set1F("uMaterial.specularIntensity", material.specularIntensity);
+
 		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 
 		gl.bindVertexArray(info.vao);

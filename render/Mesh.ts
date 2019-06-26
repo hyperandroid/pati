@@ -77,6 +77,9 @@ export default class Mesh implements RenderComponent {
 					instanceCount
 				}, material);
 				break;
+			case MaterialType.COLOR:
+				this.shaderInfo = e.getShader("null").createVAO(gl, {vertex: vertices}, material);
+				break;
 			default:
 				throw new Error(`Unknown material type. ${material}`);
 		}
@@ -207,6 +210,16 @@ export default class Mesh implements RenderComponent {
 		this.rotation[0] = x;
 		this.rotation[1] = y;
 		this.rotation[2] = z;
+		this.transformDirty = true;
+	}
+
+	setPosition(x: number, y: number, z: number) {
+		Vector3.set(this.position, x, y, z);
+		this.transformDirty = true;
+	}
+
+	setScale(s: number) {
+		Vector3.set(this.scale, s,s,s);
 		this.transformDirty = true;
 	}
 }
