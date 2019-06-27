@@ -218,6 +218,11 @@ export default class Mesh implements RenderComponent {
 		this.transformDirty = true;
 	}
 
+	setPositionV(a: ArrayLike<number>) {
+		Vector3.copy(this.position, a);
+		this.transformDirty = true;
+	}
+
 	setScale(s: number) {
 		Vector3.set(this.scale, s,s,s);
 		this.transformDirty = true;

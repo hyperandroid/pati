@@ -5,7 +5,7 @@ enum MaterialTexture {
 	SPECULAR,
 	NORMAL,
 	DISPLACEMENT
-};
+}
 
 export enum MaterialType {
 	SKYBOX,
@@ -23,8 +23,7 @@ export interface MaterialDefinition {
 	color? : Float32Array;
 
 	specular?: Texture;
-	specularIntensity? : number;
-	specularPower? : number;
+	shininess? : number;
 
 	normal?: Texture;
 	displacement?: Texture;
@@ -60,13 +59,12 @@ export default class Material {
 		});
 	}
 
-	static Texture(diffuse: Texture, specular: Texture, ambient: number, specularIntensity: number, specularPower: number) {
+	static Texture(diffuse: Texture, specular: Texture, ambient: number, shininess: number) {
 		return new Material(MaterialType.TEXTURE, {
 			diffuse,
 			specular,
 			ambient,
-			specularIntensity,
-			specularPower,
+			shininess,
 		});
 	}
 

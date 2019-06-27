@@ -8,6 +8,14 @@ function radians(v) : number {
 	return v*Math.PI/180;
 }
 
+export type PointDefinition = number[];
+
+export interface CameraDefinition {
+	position: PointDefinition;
+	forward: PointDefinition;
+	up: PointDefinition;
+}
+
 export default class Camera {
 
 	readonly position: Float32Array;
@@ -30,7 +38,11 @@ export default class Camera {
 		this.up = Vector3.createFromCoords(0,1,0);
 	}
 
-	setup(pos: Float32Array, forward: Float32Array, up: Float32Array) {
+	static from(c: CameraDefinition) : Camera {
+		return new Camera().setup(c.position, c.forward, c.up);
+	}
+
+	setup(pos: ArrayLike<number>, forward: ArrayLike<number>, up: ArrayLike<number>) {
 		Vector3.copy(this.position, pos);
 		Vector3.copy(this.forward, forward);
 		Vector3.copy(this.up, up);

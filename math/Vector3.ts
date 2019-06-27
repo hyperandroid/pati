@@ -51,7 +51,7 @@ export default class Vector3 {
 		return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 	}
 
-	static copy(out: Float32Array, v: Float32Array) : Float32Array {
+	static copy(out: Float32Array, v: ArrayLike<number>) : Float32Array {
 		out[0] = v[0];
 		out[1] = v[1];
 		out[2] = v[2];

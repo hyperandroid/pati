@@ -13,8 +13,9 @@ import {EnvironmentMapShader} from "./shader/EnvironmentMapShader";
 import Material from "./Material";
 import Surface from "./Surface";
 import Mesh from "./Mesh";
+import Light, {PointLight} from "./Light";
 
-const N = 8;
+const N = 16;
 
 export default class Engine {
 
@@ -23,15 +24,16 @@ export default class Engine {
 
 	readonly gl: WebGL2RenderingContext;
 	private shader : {[key: string]:Shader} = {};
-	private mesh: {[key: string]:RenderComponent} = {};
 	private texture: {[key: string]:Texture} = {};
 	private surface: {[key: string]:Surface} = {};
 	private camera: {[key: string]:Camera} = {};
+	private mesh: {[key: string]:RenderComponent} = {};
+	light: {[key: string]:Light} = {};
 
 	private perspective = Matrix4.create();
 	private currentCamera: Camera;
 
-	private time = 0;
+	time = 0;
 
 	private matrices = new Float32Array(16*N*N);
 	private matrix = Matrix4.create();
@@ -84,8 +86,7 @@ export default class Engine {
 			this.getTexture("diffuse"),
 			this.getTexture("specular"),
 			.1,
-			1,
-			128
+			32,
 		), false, N*N);
 		this.updateInstancingMatrices();
 
@@ -95,9 +96,23 @@ export default class Engine {
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
 		this.currentCamera.setup(
-			new Float32Array([0, 25, -10]),
-			new Float32Array([0, 0, -20]),
-			new Float32Array([0, 1, 0]));
+			[0, 25, -10],
+			[0, 0, -20],
+			[0, 1, 0]);
+
+		this.light["sun"] = Light.Directional({
+			ambient: [.1, .1, .1],
+			diffuse: [.5, .5, .5],
+			specular: [1, 1, 1],
+			direction: [0, -1, -1]
+		});
+
+		this.light["point"] = Light.Point({
+			ambient: [.1, .1, .1],
+			diffuse: [1,1,1],
+			specular: [1, 1, 1],
+			position: [0, 0, 3]
+		});
 
 		this.initializeGraphics();
 	}
@@ -149,6 +164,12 @@ export default class Engine {
 		this.gl.enable(this.gl.DEPTH_TEST);
 		this.gl.enable(this.gl.CULL_FACE);
 		this.gl.clearColor(0,0,0,1);
+
+		this.gl.cullFace(this.gl.BACK);
+		this.gl.frontFace(this.gl.CCW);
+
+		this.gl.enable(this.gl.BLEND);
+		this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 	}
 
 	render(delta: number) {
@@ -171,26 +192,20 @@ export default class Engine {
 		this.currentCamera = this.camera["camera0"];
 		this.currentCamera.sync();
 
-		const st = this.shader["texture"];
-		st.use();
-		const lx = 10.0*Math.cos(this.time/10000);
-		const ly = 3.0;
-		const lz = 10.0*Math.sin(this.time/10000);
-		st.set3F("uLight.position", lx, ly, lz);
-		st.set3F("uLight.ambient", .2, .2, .2);
-		const ldx = 1.0; //Math.sin(this.time/5000);
-		const ldy = 1.0; //Math.sin(this.time/3000);
-		const ldz = 1.0; //Math.cos(this.time/7000);
-		st.set3F("uLight.diffuse", ldx, ldy, ldz);
-		st.set3F("uLight.specular", 1, 1, 1);
-		st.notUse();
-
 		// this.updateInstancingMatrices();
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
+
+		const light = this.light['point'] as PointLight;
+		light.setPosition(
+			2+5*Math.cos((this.time%15000)/15000*2*Math.PI),
+			5,
+			4+5*Math.sin((this.time%15000)/15000*2*Math.PI));
+
 		this.mesh["cube2"].renderInstanced(this, this.matrices, N*N);
-		(this.mesh["lightprobe"] as Mesh).setPosition(lx, ly, lz);
+
+		(this.mesh["lightprobe"] as Mesh).setPositionV(light.getPosition());
 		(this.mesh["lightprobe"] as Mesh).setScale(.3);
-		(this.mesh["lightprobe"] as Mesh).getMaterial().definition.color.set([ldx, ldy, ldz]);
+		(this.mesh["lightprobe"] as Mesh).getMaterial().definition.color.set(light.getDiffuse());
 		this.mesh["lightprobe"].render(this);
 		this.mesh["skybox"].render(this);
 
@@ -207,7 +222,7 @@ export default class Engine {
 			const t = ((this.time % tt)) / (tt / 2) * Math.PI;
 			// Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 30 * Math.sin(2 * Math.PI / N * col + t) * Math.cos(2 * Math.PI / N * row + t), -row * 3);
 			// Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
-			// Vector3.set(this.rotation, Math.random()*2*Math.PI, 0, Math.random()*2*Math.PI);
+			Vector3.set(this.rotation, Math.random()*2*Math.PI, 0, Math.random()*2*Math.PI);
 			Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 0, (row - ((N-1)/2)) * 3);
 			Vector3.set(this.scale, 2, 2, 2);
 			this.matrices.set(

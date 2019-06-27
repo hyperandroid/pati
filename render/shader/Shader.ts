@@ -5,6 +5,7 @@ import RenderComponent from "../RenderComponent";
 
 export interface ShaderInitializer {
 	gl: WebGL2RenderingContext;
+	common?: string,
     vertex: string|string[],
     fragment: string|string[],
     uniforms: string[],
@@ -64,7 +65,7 @@ export default abstract class Shader {
 		return shader;
 	}
 
-	private static getShaderDef(def: string | string[], defines?: { [key: string]: string }): string {
+	private static getShaderDef(def: string | string[], defines?: { [key: string]: string }, common?: string): string {
 
 		let ret = "";
 
@@ -86,7 +87,12 @@ export default abstract class Shader {
 			lines.splice(1, 0, ...sdefines);
 		}
 
-		return lines.join('\n');
+		if (common!==undefined) {
+			common = `${common}\n`;
+		} else {
+			common = '';
+		}
+		return `${common}${lines.join('\n')}`;
 	}
 
 	private __init(shaderDef: ShaderInitializer) {
@@ -96,12 +102,12 @@ export default abstract class Shader {
 		this._shaderProgram = gl.createProgram();
 		gl.attachShader(
 			this._shaderProgram,
-			Shader.getShader(gl, gl.VERTEX_SHADER, Shader.getShaderDef(shaderDef.vertex, shaderDef.defines))
+			Shader.getShader(gl, gl.VERTEX_SHADER, Shader.getShaderDef(shaderDef.vertex, shaderDef.defines, shaderDef.common))
 		);
 
 		gl.attachShader(
 			this._shaderProgram,
-			Shader.getShader(gl, gl.FRAGMENT_SHADER, Shader.getShaderDef(shaderDef.fragment, shaderDef.defines))
+			Shader.getShader(gl, gl.FRAGMENT_SHADER, Shader.getShaderDef(shaderDef.fragment, shaderDef.defines, shaderDef.common))
 		);
 
 		gl.linkProgram(this._shaderProgram);
