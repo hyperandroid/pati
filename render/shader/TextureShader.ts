@@ -15,6 +15,14 @@ export default class TextureShader extends Shader {
 			vertex : `#version 300 es
 				
 				precision mediump float;
+				
+				struct Light {
+					vec3 position;
+				  
+					vec3 ambient;
+					vec3 diffuse;	// light color
+					vec3 specular;
+				};							
 
 				layout(location = 0) in vec3 aPosition;
 				layout(location = 1) in vec2 aTexture;
@@ -23,16 +31,19 @@ export default class TextureShader extends Shader {
 				
 				uniform mat4 uProjection;
 				uniform mat4 uModelView;
+				uniform Light uLight;
 				
 				out vec2 vTexturePos;
 				out vec3 vNormal;
 				out vec3 vFragmentPos;
+				out vec3 vLightPos;
 
 				void main() {
 					gl_Position = uProjection * uModelView * aModel * vec4(aPosition, 1.0);
 					vTexturePos = aTexture;
-					vNormal = mat3(transpose(inverse(aModel))) * aNormal;	// normal matrix
-					vFragmentPos = vec3(aModel * vec4(aPosition, 1.0));
+					vNormal = mat3(transpose(inverse(uModelView * aModel))) * aNormal;	// normal matrix
+					vFragmentPos = vec3(uModelView * aModel * vec4(aPosition, 1.0));
+					vLightPos = vec3(uModelView * vec4(uLight.position, 1.0));
 				}
 			`,
 			fragment: `#version 300 es
@@ -56,18 +67,19 @@ export default class TextureShader extends Shader {
 				};								
 				
 				uniform vec3 uViewPos;
-				uniform Light uLight;				
+				uniform Light uLight;
 				uniform Material uMaterial;
 				
 				in vec2 vTexturePos;
 				in vec3 vNormal;
 				in vec3 vFragmentPos;
+				in vec3 vLightPos;
 
 				out vec4 color;
 
 				void main() {
 					vec3 norm = normalize(vNormal);
-					vec3 lightDir = normalize(uLight.position - vFragmentPos);
+					vec3 lightDir = normalize(vLightPos - vFragmentPos);
 					
 					vec3 diffuseColor = vec3(texture(uMaterial.diffuse, vTexturePos));
 					
@@ -81,8 +93,8 @@ export default class TextureShader extends Shader {
 					// specular
 					vec3 specular;
 					if (diff>0.0) {
-						vec3 viewDir = normalize(uViewPos - vFragmentPos); 
-						vec3 reflectDir = reflect(norm, lightDir);
+						vec3 viewDir =  normalize(-vFragmentPos);	// view space, viewer is at 0,0,0 
+						vec3 reflectDir = reflect(-lightDir, norm);
 						float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.specularPower);
 						specular = vec3(texture(uMaterial.specular, vTexturePos)) * spec * uLight.specular * uMaterial.specularIntensity;
 					}  
@@ -192,6 +204,7 @@ export default class TextureShader extends Shader {
 		this.set1F("uMaterial.specularIntensity", material.specularIntensity);
 
 		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
+		this.set3FV("uViewPos", e.cameraPosition());
 
 		gl.bindVertexArray(info.vao);
 

@@ -14,7 +14,7 @@ import Material from "./Material";
 import Surface from "./Surface";
 import Mesh from "./Mesh";
 
-const N = 16;
+const N = 8;
 
 export default class Engine {
 
@@ -84,8 +84,8 @@ export default class Engine {
 			this.getTexture("diffuse"),
 			this.getTexture("specular"),
 			.1,
-			.5,
-			32
+			1,
+			128
 		), false, N*N);
 		this.updateInstancingMatrices();
 
@@ -173,16 +173,16 @@ export default class Engine {
 
 		const st = this.shader["texture"];
 		st.use();
-		st.set3FV("uViewPos", this.camera["camera0"].position);
-
 		const lx = 10.0*Math.cos(this.time/10000);
 		const ly = 3.0;
 		const lz = 10.0*Math.sin(this.time/10000);
 		st.set3F("uLight.position", lx, ly, lz);
 		st.set3F("uLight.ambient", .2, .2, .2);
-		st.set3F("uLight.diffuse", 1, 1, 1);
+		const ldx = 1.0; //Math.sin(this.time/5000);
+		const ldy = 1.0; //Math.sin(this.time/3000);
+		const ldz = 1.0; //Math.cos(this.time/7000);
+		st.set3F("uLight.diffuse", ldx, ldy, ldz);
 		st.set3F("uLight.specular", 1, 1, 1);
-
 		st.notUse();
 
 		// this.updateInstancingMatrices();
@@ -190,6 +190,7 @@ export default class Engine {
 		this.mesh["cube2"].renderInstanced(this, this.matrices, N*N);
 		(this.mesh["lightprobe"] as Mesh).setPosition(lx, ly, lz);
 		(this.mesh["lightprobe"] as Mesh).setScale(.3);
+		(this.mesh["lightprobe"] as Mesh).getMaterial().definition.color.set([ldx, ldy, ldz]);
 		this.mesh["lightprobe"].render(this);
 		this.mesh["skybox"].render(this);
 
@@ -206,7 +207,7 @@ export default class Engine {
 			const t = ((this.time % tt)) / (tt / 2) * Math.PI;
 			// Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 30 * Math.sin(2 * Math.PI / N * col + t) * Math.cos(2 * Math.PI / N * row + t), -row * 3);
 			// Vector3.set(this.rotation, t, 2*t*(i%2?1:-1), 0);
-			Vector3.set(this.rotation, Math.random()*2*Math.PI, 0, Math.random()*2*Math.PI);
+			// Vector3.set(this.rotation, Math.random()*2*Math.PI, 0, Math.random()*2*Math.PI);
 			Vector3.set(this.position, (col - ((N - 1) / 2)) * 3, 0, (row - ((N-1)/2)) * 3);
 			Vector3.set(this.scale, 2, 2, 2);
 			this.matrices.set(
