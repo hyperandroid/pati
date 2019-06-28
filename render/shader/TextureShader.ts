@@ -13,10 +13,11 @@ export default class TextureShader extends Shader {
 	constructor(gl: WebGL2RenderingContext) {
 		super({
 			gl,
-			common : `#version 300 es
+			common: `#version 300 es
 							
 				precision mediump float;
 				
+				// directional lights, 
 				struct Light {
 					// 				point light
 					vec3 position;
@@ -30,6 +31,9 @@ export default class TextureShader extends Shader {
 					vec3 ambient;
 					vec3 diffuse;
 					vec3 specular;
+					
+					//				spot light
+					float cutoff;
 				};
 				
  				struct Material {
@@ -41,7 +45,7 @@ export default class TextureShader extends Shader {
 			   	};  
 				
 			`,
-			vertex : `					
+			vertex: `					
 				layout(location = 0) in vec3 aPosition;
 				layout(location = 1) in vec2 aTexture;
 				layout(location = 2) in vec3 aNormal;
@@ -74,20 +78,19 @@ export default class TextureShader extends Shader {
 
 				out vec4 color;
 				
-				vec3 getAmbient() {
-					return uLight.ambient;
+				vec4 getAmbient() {
+					vec4 diffuseColor = texture(uMaterial.diffuse, vTexturePos);
+					return vec4(uLight.ambient,1.0) * diffuseColor;
 				}
 				
-				vec3 getDiffuse(vec3 normal) {
-					vec3 lightDir = normalize(uLight.position - vFragmentPos);
+				vec4 getDiffuse(vec3 normal, vec3 lightDir) {
 					float diff = max(dot(normal, lightDir), 0.0);
+					vec4 diffuseColor = texture(uMaterial.diffuse, vTexturePos);
 					
-					return diff * uLight.diffuse;
+					return diff * vec4(uLight.diffuse,1.0) * diffuseColor;
 				}
 				
-				vec4 getSpecular(vec3 normal) {
-					vec3 lightDir = normalize( uLight.position - vFragmentPos );
-					
+				vec4 getSpecular(vec3 normal, vec3 lightDir) {
 					float specular = 0.0;
 					if (dot(normal, lightDir)>0.0) {					
 						vec3 reflect = -reflect(lightDir, normal);
@@ -99,42 +102,36 @@ export default class TextureShader extends Shader {
 				}
 				
 				vec4 directional() {
-					vec3 norm = normalize(vNormal);
-					// vec3 lightDir = normalize(vLightDir - vFragmentPos);
 					vec3 lightDir = normalize(-uLight.direction);
-					
-					vec3 diffuseColor = vec3(texture(uMaterial.diffuse, vTexturePos));
-					
-					// ambient
-					vec3 ambient = uMaterial.ambient * uLight.ambient * diffuseColor;
-					
-					// diffuse
-					float diff = max(dot(norm, lightDir), 0.0);
-					vec3 diffuse = diff * uLight.diffuse * diffuseColor;
-					
-					// specular
-					vec3 viewDir =  normalize(uViewPos-vFragmentPos); 
-					vec3 reflectDir = reflect(lightDir, norm);
-					float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.shininess);
-					vec3 specular = vec3(texture(uMaterial.specular, vTexturePos)) * spec;
-					
-					return vec4( ambient + diffuse + specular, 1.0 ); 
+					return vec4(0,0,0,0);
 				}
 				
 				vec4 point() {
-					vec3 norm = normalize(vNormal);
-					 return texture(uMaterial.diffuse, vTexturePos) *
-					 		vec4( getAmbient() + getDiffuse(norm), 1.0) + getSpecular(norm); 
+					vec3 norm = 		normalize(vNormal);
+					vec3 lightDir = 	normalize(uLight.position - vFragmentPos);
+					
+					vec4 color = 		getAmbient() + 
+										getDiffuse(norm, lightDir) + 
+										getSpecular(norm, lightDir);
+									
+					float distance = 	length(uLight.position - vFragmentPos);
+					float attenuation = 1.0 / (	uLight.constant + 
+												uLight.linear * distance + 
+												uLight.quadratic * 
+												(distance * distance));    
+ 
+ 					return color * attenuation;
 				}				
 
 				void main() {
 					color = point(); 
 				}
 			`,
-			attributes : ["aPosition", "aTexture", "aNormal", "aModel"],
+			attributes: ["aPosition", "aTexture", "aNormal", "aModel"],
 			uniforms: [
 				"uProjection",
 				"uModelView",
+
 				"uLight.position",
 				"uLight.constant",
 				"uLight.linear",
@@ -160,6 +157,12 @@ export default class TextureShader extends Shader {
 		this.set3F("uLight.ambient", .2, .2, .2);
 		this.set3F("uLight.diffuse", .5, .5, .5);
 		this.set3F("uLight.specular", 1, 1, 1);
+
+		// for different point light values decay, check:
+		// http://wiki.ogre3d.org/tiki-index.php?page=-Point+Light+Attenuation
+		this.set1F("uLight.constant", 1.0);
+		this.set1F("uLight.linear", 0.045);
+		this.set1F("uLight.quadratic", 0.0075);
 	}
 
 	use() {
