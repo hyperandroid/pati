@@ -47,9 +47,11 @@ export default class Camera {
 		Vector3.copy(this.forward, forward);
 		Vector3.copy(this.up, up);
 
-		this.yaw = 180/Math.PI*Math.atan2(forward[2], forward[0]);
+		Vector3.normalize(v0, Vector3.copy(v0, this.forward));
+
+		this.yaw = 180/Math.PI*Math.atan2(v0[2], v0[0]);
 		this.pitch =
-			180/Math.PI*Math.asin(forward[1]);
+			180/Math.PI*Math.asin(v0[1]);
 		this.sync();
 
 		return this;

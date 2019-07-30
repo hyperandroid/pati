@@ -15,7 +15,7 @@ import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
 
-const N = 64;
+const N = 256;
 
 export default class Engine {
 
@@ -41,8 +41,6 @@ export default class Engine {
 	private rotation= Vector3.create();
 	private scale = Vector3.createFromCoords(1,1,1);
 
-	static ext_instanced_arrays: ANGLE_instanced_arrays;
-
 	constructor(w: number, h: number) {
 		Platform.initialize(w, h);
 
@@ -53,8 +51,6 @@ export default class Engine {
 
 	init() {
 		const gl = this.gl;
-
-		Engine.ext_instanced_arrays = gl.getExtension("ANGLE_instanced_arrays");
 
 		this.currentCamera = new Camera();
 		this.camera["camera0"] = this.currentCamera;
@@ -101,7 +97,7 @@ export default class Engine {
 
 		this.currentCamera.setup(
 			[0, 25, -10],
-			[0, 0, -20],
+			[0, -20, -2],
 			[0, 1, 0]);
 
 		this.light["sun"] = Light.Directional({
@@ -215,9 +211,9 @@ export default class Engine {
 		lp.render(this);
 		this.mesh["skybox"].render(this);
 
-		const p = light.getPosition();
-		this.currentCamera.lookAt(p[0], -p[1], p[2]);
-		this.currentCamera.sync();
+		// const p = light.getPosition();
+		// this.currentCamera.lookAt(p[0], -p[1], p[2]);
+		// this.currentCamera.sync();
 
 		this.time += delta;
 	}

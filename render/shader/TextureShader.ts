@@ -186,23 +186,9 @@ export default class TextureShader extends Shader {
 		const gl = this._gl;
 
 		for(let i = 0; i<7; i++ ) {
-			Engine.ext_instanced_arrays.vertexAttribDivisorANGLE(i, 0);
+			gl.vertexAttribDivisor(i, 0);
+			gl.disableVertexAttribArray(i);
 		}
-		// gl.vertexAttribDivisor(0, 0);
-		// gl.vertexAttribDivisor(1, 0);
-		// gl.vertexAttribDivisor(2, 0);
-		// gl.vertexAttribDivisor(3, 0);
-		// gl.vertexAttribDivisor(4, 0);
-		// gl.vertexAttribDivisor(5, 0);
-		// gl.vertexAttribDivisor(6, 0);
-
-		gl.disableVertexAttribArray(0);
-		gl.disableVertexAttribArray(1);
-		gl.disableVertexAttribArray(2);
-		gl.disableVertexAttribArray(3);
-		gl.disableVertexAttribArray(4);
-		gl.disableVertexAttribArray(5);
-		gl.disableVertexAttribArray(6);
 
 		gl.useProgram(null);
 	}

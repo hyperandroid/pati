@@ -32,8 +32,9 @@ export interface VAOGeometryInfo {
 	instanceCount?: number;
 }
 
+// make instancing batches taking at most MAX_BUFFER_INSTANCE bytes.
 const BYTES_PER_INSTANCE = 16*4;
-const MAX_BUFFER_INSTANCE = 32768;
+const MAX_BUFFER_INSTANCE = 65536;
 
 export class ModelMatrixInstancingInfo {
 	readonly buffer: WebGLBuffer;
@@ -66,8 +67,7 @@ export class ModelMatrixInstancingInfo {
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
 		for (let i = 0; i < 4; i++) {
 			gl.enableVertexAttribArray(this.attributeIndex + i);
-			// gl.vertexAttribDivisor(this.attributeIndex + i, 1);
-			Engine.ext_instanced_arrays.vertexAttribDivisorANGLE(this.attributeIndex + i, 1);
+			gl.vertexAttribDivisor(this.attributeIndex + i, 1);
 		}
 
 		for(let j = 0; j < batches; j++ ) {
@@ -85,8 +85,7 @@ export class ModelMatrixInstancingInfo {
 			if (this.isIndexed) {
 				gl.drawElementsInstanced(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, 0, count);
 			} else {
-				// gl.drawArraysInstanced(gl.TRIANGLES, 0, vertexCount, count);
-				Engine.ext_instanced_arrays.drawArraysInstancedANGLE(gl.TRIANGLES, 0, vertexCount, count);
+				gl.drawArraysInstanced(gl.TRIANGLES, 0, vertexCount, count);
 			}
 		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, null);
