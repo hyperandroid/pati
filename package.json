@@ -4,7 +4,7 @@
   "scripts": {
     "tsc": "echo 'TSC' && tsc",
     "browserify": "echo 'Browserify' && mkdir -p build && browserify -p tsify -d -r ./Main.js:Main > build/all.js",
-    "build": "npm run tsc && npm run browserify",
+    "build": "npm run tsc && npm run browserify && echo \"\" >> build/all.js && echo \"require('Main');\" >> build/all.js",
     "serve": "http-server ."
   },
   "devDependencies": {
