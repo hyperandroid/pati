@@ -15,7 +15,7 @@ import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
 
-const N = 256;
+const N = 32;
 
 export default class Engine {
 
@@ -188,6 +188,8 @@ export default class Engine {
 		// this.mesh["skybox"].render(this);
 		//
 		// this.surface["surface0"].disableAsTextureTarget(this);
+
+		this.gl.clearDepth(1.0);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT | this.gl.STENCIL_BUFFER_BIT);
 
 		this.currentCamera = this.camera["camera0"];
@@ -211,9 +213,9 @@ export default class Engine {
 		lp.render(this);
 		this.mesh["skybox"].render(this);
 
-		// const p = light.getPosition();
-		// this.currentCamera.lookAt(p[0], -p[1], p[2]);
-		// this.currentCamera.sync();
+		const p = light.getPosition();
+		this.currentCamera.lookAt(p[0], -p[1], p[2]);
+		this.currentCamera.sync();
 
 		this.time += delta;
 	}
