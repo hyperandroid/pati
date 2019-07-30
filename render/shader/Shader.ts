@@ -1,5 +1,4 @@
 import Engine from "../Engine";
-import Matrix4 from "../../math/Matrix4";
 import Material from "../Material";
 import RenderComponent from "../RenderComponent";
 
@@ -20,7 +19,7 @@ export interface ShaderVAOInfo {
 	uvBuffer: WebGLBuffer;
 	normalBuffer: WebGLBuffer;
 	indexBuffer: WebGLBuffer;
-	instanceBuffer: WebGLBuffer;
+	instanceBuffer: ModelMatrixInstancingInfo;
 	vertexCount: number;
 	instanceCount: number;
 }
@@ -31,6 +30,72 @@ export interface VAOGeometryInfo {
 	normal?: Float32Array;
 	index?: Uint16Array;
 	instanceCount?: number;
+}
+
+const BYTES_PER_INSTANCE = 16*4;
+const MAX_BUFFER_INSTANCE = 32768;
+
+export class ModelMatrixInstancingInfo {
+	readonly buffer: WebGLBuffer;
+	readonly attributeIndex: number;
+	readonly isIndexed: boolean;
+	readonly instanceCount: number;
+
+	constructor(gl: WebGL2RenderingContext, aid: number, instanceCount: number, indexed: boolean) {
+		this.attributeIndex = aid;
+
+		this.isIndexed = indexed;
+		this.buffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		const fbuffer = new Float32Array(instanceCount*16);
+		gl.bufferData(gl.ARRAY_BUFFER, fbuffer, gl.DYNAMIC_DRAW);
+
+		this.instanceCount = instanceCount;
+	}
+
+	draw(gl: WebGL2RenderingContext, vertexCount: number, instanceCount: number) {
+
+		instanceCount = Math.min(instanceCount, this.instanceCount);
+
+		// batch instances info.
+		// any mobile gpu would probably limit the buffer to 16k
+		// any desktop will be ok with 65k instances.
+		const batches = Math.max(1,((instanceCount * BYTES_PER_INSTANCE) / MAX_BUFFER_INSTANCE) | 0);
+		const maxInstancesPerBatch = batches === 0 ? instanceCount : MAX_BUFFER_INSTANCE / BYTES_PER_INSTANCE;
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		for (let i = 0; i < 4; i++) {
+			gl.enableVertexAttribArray(this.attributeIndex + i);
+			// gl.vertexAttribDivisor(this.attributeIndex + i, 1);
+			Engine.ext_instanced_arrays.vertexAttribDivisorANGLE(this.attributeIndex + i, 1);
+		}
+
+		for(let j = 0; j < batches; j++ ) {
+
+			const count = j < batches-1 ?
+				maxInstancesPerBatch :
+				instanceCount - (batches-1)*maxInstancesPerBatch;
+
+			for (let i = 0; i < 4; i++) {
+				gl.vertexAttribPointer(this.attributeIndex + i, 4,
+					gl.FLOAT, false,
+					64, i * 16 + j*MAX_BUFFER_INSTANCE );
+			}
+
+			if (this.isIndexed) {
+				gl.drawElementsInstanced(gl.TRIANGLES, vertexCount, gl.UNSIGNED_SHORT, 0, count);
+			} else {
+				// gl.drawArraysInstanced(gl.TRIANGLES, 0, vertexCount, count);
+				Engine.ext_instanced_arrays.drawArraysInstancedANGLE(gl.TRIANGLES, 0, vertexCount, count);
+			}
+		}
+		gl.bindBuffer(gl.ARRAY_BUFFER, null);
+	}
+
+	updateWith(gl: WebGL2RenderingContext, locals: Float32Array) {
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+		gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals, 0, Math.min(this.instanceCount*16, locals.length));
+	}
 }
 
 /**
@@ -193,24 +258,9 @@ export default abstract class Shader {
 
 	abstract render(e: Engine, info: ShaderVAOInfo, rc: RenderComponent);
 
-	protected static createInstancedModelMatrix(gl: WebGL2RenderingContext, instanceCount: number, attributeId: number): WebGLBuffer {
+	protected static createInstancedModelMatrix(gl: WebGL2RenderingContext, instanceCount: number, attributeId: number, indexed: boolean): ModelMatrixInstancingInfo {
 
-		const glInstancedMatrixBuffer = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, glInstancedMatrixBuffer);
-		const matrixBuffer = new Float32Array(16 * instanceCount);
-		for (let i = 0; i < instanceCount; i++) {
-			Matrix4.identity(matrixBuffer, i * 16);
-		}
-		gl.bufferData(gl.ARRAY_BUFFER, matrixBuffer, gl.DYNAMIC_DRAW);
-
-		for (let i = 0; i < 4; i++) {
-
-			gl.enableVertexAttribArray(attributeId + i);
-			gl.vertexAttribDivisor(attributeId + i, 1);
-			gl.vertexAttribPointer(attributeId + i, 4, gl.FLOAT, false, 64, i * 16);
-		}
-
-		return glInstancedMatrixBuffer;
+		return new ModelMatrixInstancingInfo(gl, attributeId, instanceCount, indexed);
 	}
 
 	protected static createAttributeInfo(gl: WebGL2RenderingContext, attributeId: number, data: Float32Array, stride: number, offset: number): WebGLBuffer {

@@ -7,4 +7,5 @@ export default interface RenderComponent {
 	getMaterial() : Material;
 	render(e: Engine);
 	renderInstanced(e: Engine, locals: Float32Array, numInstances: number)
+	getPosition(): Float32Array;
 }

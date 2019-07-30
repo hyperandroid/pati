@@ -5,6 +5,7 @@ import Material from "../Material";
 import RenderComponent from "../RenderComponent";
 import {DirectionalLight, PointLight} from "../Light";
 
+
 /**
  * just draw geometry in a plain pink color
  */
@@ -79,13 +80,13 @@ export default class TextureShader extends Shader {
 				out vec4 color;
 				
 				vec4 getAmbient() {
-					vec4 diffuseColor = texture(uMaterial.diffuse, vTexturePos);
+					vec4 diffuseColor = vec4(vec3(texture(uMaterial.diffuse, vTexturePos).xyz), 1.0);
 					return vec4(uLight.ambient,1.0) * diffuseColor;
 				}
 				
 				vec4 getDiffuse(vec3 normal, vec3 lightDir) {
 					float diff = max(dot(normal, lightDir), 0.0);
-					vec4 diffuseColor = texture(uMaterial.diffuse, vTexturePos);
+					vec4 diffuseColor = vec4(vec3(texture(uMaterial.diffuse, vTexturePos).xyz), 1.0);
 					
 					return diff * vec4(uLight.diffuse,1.0) * diffuseColor;
 				}
@@ -93,12 +94,19 @@ export default class TextureShader extends Shader {
 				vec4 getSpecular(vec3 normal, vec3 lightDir) {
 					float specular = 0.0;
 					if (dot(normal, lightDir)>0.0) {					
-						vec3 reflect = -reflect(lightDir, normal);
 						vec3 viewDir = normalize(uViewPos - vFragmentPos);
-						specular = pow(max(dot(viewDir, reflect), 0.0), uMaterial.shininess);
+						#ifdef PHONG
+							// phong
+							vec3 reflect = -reflect(lightDir, normal);
+							specular = pow(max(dot(viewDir, reflect), 0.0), uMaterial.shininess);
+						#else						
+							// blinn phong
+							vec3 halfwayDir = normalize(lightDir + viewDir);
+							specular = pow(max(dot(normal, halfwayDir), 0.0), uMaterial.shininess);
+						#endif
 					}
 					
-					return specular * vec4(uLight.specular,1.0) * texture(uMaterial.specular, vTexturePos); 
+					return specular * vec4(uLight.specular,1.0) * vec4(vec3(texture(uMaterial.specular, vTexturePos)), 1.0); 
 				}
 				
 				vec4 directional() {
@@ -115,12 +123,15 @@ export default class TextureShader extends Shader {
 										getSpecular(norm, lightDir);
 									
 					float distance = 	length(uLight.position - vFragmentPos);
-					float attenuation = 1.0 / (	uLight.constant + 
+					float attenuation = pow(1.0 / (	uLight.constant + 
 												uLight.linear * distance + 
 												uLight.quadratic * 
-												(distance * distance));    
+												(distance * distance)), .45);	// gamma    
  
- 					return color * attenuation;
+ 					color.xyz = color.xyz * attenuation;
+ 					// color.xyz = pow(color.xyz, vec3(.45));	// gamma
+ 					
+ 					return color;
 				}				
 
 				void main() {
@@ -174,6 +185,17 @@ export default class TextureShader extends Shader {
 	notUse() {
 		const gl = this._gl;
 
+		for(let i = 0; i<7; i++ ) {
+			Engine.ext_instanced_arrays.vertexAttribDivisorANGLE(i, 0);
+		}
+		// gl.vertexAttribDivisor(0, 0);
+		// gl.vertexAttribDivisor(1, 0);
+		// gl.vertexAttribDivisor(2, 0);
+		// gl.vertexAttribDivisor(3, 0);
+		// gl.vertexAttribDivisor(4, 0);
+		// gl.vertexAttribDivisor(5, 0);
+		// gl.vertexAttribDivisor(6, 0);
+
 		gl.disableVertexAttribArray(0);
 		gl.disableVertexAttribArray(1);
 		gl.disableVertexAttribArray(2);
@@ -190,8 +212,9 @@ export default class TextureShader extends Shader {
 		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
 
-		for(let i = 0; i < 6; i++) {
+		for(let i = 0; i < 3; i++) {
 			gl.enableVertexAttribArray(i);
+			gl.vertexAttribDivisor(i,0);
 		}
 
 		const instanceCount = geometryInfo.instanceCount || 1;
@@ -199,7 +222,7 @@ export default class TextureShader extends Shader {
 		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
 		const glUVBuffer = Shader.createAttributeInfo(gl, 1, geometryInfo.uv, 8, 0);
 		const glNormalBuffer = Shader.createAttributeInfo(gl, 2, geometryInfo.normal, 12, 0);
-		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 3);
+		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 3, geometryInfo.index ? true : false);
 
 		let glBufferIndex: WebGLBuffer = null;
 		let vertexCount = (geometryInfo.vertex.length/3)|0;
@@ -252,11 +275,7 @@ export default class TextureShader extends Shader {
 
 		gl.bindVertexArray(info.vao);
 
-		if (info.indexBuffer!==null) {
-			gl.drawElementsInstanced(gl.TRIANGLES, info.vertexCount, gl.UNSIGNED_SHORT, 0, info.instanceCount);
-		} else {
-			gl.drawArraysInstanced(gl.TRIANGLES, 0, info.vertexCount, info.instanceCount);
-		}
+		info.instanceBuffer.draw(gl, info.vertexCount, info.instanceCount);
 
 		gl.bindVertexArray(null);
 		this.notUse();

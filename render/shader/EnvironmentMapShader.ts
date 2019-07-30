@@ -93,11 +93,12 @@ export class EnvironmentMapShader extends Shader {
 
 		gl.bindVertexArray(info.vao);
 
-		if (info.indexBuffer !== null) {
-			gl.drawElementsInstanced(gl.TRIANGLES, info.vertexCount, gl.UNSIGNED_SHORT, 0, info.instanceCount);
-		} else {
-			gl.drawArraysInstanced(gl.TRIANGLES, 0, info.vertexCount, info.instanceCount);
-		}
+		info.instanceBuffer.draw(gl, info.vertexCount, info.instanceCount);
+		// if (info.indexBuffer !== null) {
+		// 	gl.drawElementsInstanced(gl.TRIANGLES, info.vertexCount, gl.UNSIGNED_SHORT, 0, info.instanceCount);
+		// } else {
+		// 	gl.drawArraysInstanced(gl.TRIANGLES, 0, info.vertexCount, info.instanceCount);
+		// }
 
 		gl.bindVertexArray(null);
 		this.notUse();
@@ -116,7 +117,7 @@ export class EnvironmentMapShader extends Shader {
 
 		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
 		const glNormalBuffer = Shader.createAttributeInfo(gl, 1, geometryInfo.normal, 12, 0);
-		const glInstancedModelMatrixBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 2);
+		const glInstancedModelMatrixBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 2, geometryInfo.index ? true : false);
 		let glBufferIndex: WebGLBuffer = null;
 		let vertexCount = (geometryInfo.vertex.length/3)|0;
 		if (geometryInfo.index!==null) {

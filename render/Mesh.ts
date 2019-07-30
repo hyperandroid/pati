@@ -173,7 +173,7 @@ export default class Mesh implements RenderComponent {
 	}
 
 	render(e: Engine) {
-		this.renderInstanced(e, this.transform, 1);
+		this.renderInstanced(e, this.transform, this.shaderInfo.instanceCount);
 	}
 
 	renderInstanced(e: Engine, locals: Float32Array, numInstances: number) {
@@ -181,20 +181,7 @@ export default class Mesh implements RenderComponent {
 		this.transformMatrix();
 		const gl = e.gl;
 
-		// bugbug, should be checked on shader.
-		if (null!==this.shaderInfo.instanceBuffer) {
-			// update instances info if needed.
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.instanceBuffer);
-
-			// check for locals info room in current instance info buffer.
-			if (numInstances > this.shaderInfo.instanceCount) {
-				gl.bufferData(gl.ARRAY_BUFFER, locals, gl.DYNAMIC_DRAW);
-				this.shaderInfo.instanceCount = numInstances;
-			} else {
-				gl.bufferSubData(gl.ARRAY_BUFFER, 0, locals);
-			}
-		}
-
+		this.shaderInfo.instanceBuffer && this.shaderInfo.instanceBuffer.updateWith(gl, locals);
 		this.shaderInfo.shader.render(e, this.shaderInfo, this);
 	}
 
@@ -223,8 +210,42 @@ export default class Mesh implements RenderComponent {
 		this.transformDirty = true;
 	}
 
+	getPosition() : Float32Array {
+		return this.position;
+	}
+
 	setScale(s: number) {
 		Vector3.set(this.scale, s,s,s);
 		this.transformDirty = true;
+	}
+
+	static Sphere(e: Engine, r: number, long_segments: number, lat_segments: number, material: Material) : Mesh {
+
+		const vertices = new Float32Array((1+long_segments)*(1+lat_segments));
+
+		let index = 0;
+
+		for(let j = 0; j<lat_segments; j++) {
+			const u0 = (j-lat_segments/2)*Math.PI;	// 0 .. pi
+			const u1 = (j-lat_segments/2)*Math.PI;	// 0 .. pi
+			for(let i = 0; i < long_segments; i++) {
+
+				const t0 = (i-long_segments)*2*Math.PI;
+				const t1 = (i-long_segments)*2*Math.PI;
+
+				const x = r*Math.sin(u0)*Math.cos(t0);
+				const y = r*Math.sin(u0)*Math.sin(t0);
+				const z = r*Math.cos(t0);
+
+				vertices[index  ] = x;
+				vertices[index++] = y;
+				vertices[index++] = z;
+			}
+		}
+
+		const m = new Mesh();
+		// m.from(e, vertices, uv, null, material, 1);
+
+		return m;
 	}
 }

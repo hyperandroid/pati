@@ -20,13 +20,13 @@ new Loader().addImage([
 	e.addTexture("diffuse", Texture.initialize(gl, {
 		element: l.getImage("diffuse.png"),
 		wrap_mode: gl.CLAMP_TO_EDGE,
-		filter: gl.LINEAR
+		filter: gl.LINEAR,
 	}));
 
 	e.addTexture("specular", Texture.initialize(gl, {
 		element: l.getImage("specular.png"),
 		wrap_mode: gl.CLAMP_TO_EDGE,
-		filter: gl.LINEAR
+		filter: gl.LINEAR,
 	}));
 
 	e.addTexture("cubemap", Texture.initializeCubeMap(gl,
