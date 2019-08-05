@@ -15,7 +15,8 @@ import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
 
-const N = 32;
+const N = 8;
+let pos = 0;
 
 export default class Engine {
 
@@ -115,6 +116,19 @@ export default class Engine {
 		});
 
 		this.initializeGraphics();
+
+		Platform.canvas.addEventListener("touchend", (e: TouchEvent) => {
+
+			const mult = (e.changedTouches[0].pageX < window.innerWidth/2) ? 1 : -1;
+			pos+=.01 * mult;
+
+			this.currentCamera.lookAt(
+				30*Math.cos(pos),
+				-20,
+				30*Math.sin(pos));
+
+			console.log(pos);
+		});
 	}
 
 	resize(w: number, h: number, force?: boolean) {
@@ -213,9 +227,9 @@ export default class Engine {
 		lp.render(this);
 		this.mesh["skybox"].render(this);
 
-		const p = light.getPosition();
-		this.currentCamera.lookAt(p[0], -p[1], p[2]);
-		this.currentCamera.sync();
+		// const p = light.getPosition();
+		// this.currentCamera.lookAt(p[0], -p[1], p[2]);
+		// this.currentCamera.sync();
 
 		this.time += delta;
 	}

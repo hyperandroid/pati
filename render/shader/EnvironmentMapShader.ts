@@ -117,7 +117,7 @@ export class EnvironmentMapShader extends Shader {
 
 		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
 		const glNormalBuffer = Shader.createAttributeInfo(gl, 1, geometryInfo.normal, 12, 0);
-		const glInstancedModelMatrixBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 2, geometryInfo.index ? true : false);
+		const glInstancedModelMatrixBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 2, !!geometryInfo.index);
 		let glBufferIndex: WebGLBuffer = null;
 		let vertexCount = (geometryInfo.vertex.length/3)|0;
 		if (geometryInfo.index!==null) {

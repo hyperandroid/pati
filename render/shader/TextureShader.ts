@@ -50,7 +50,7 @@ export default class TextureShader extends Shader {
 				layout(location = 0) in vec3 aPosition;
 				layout(location = 1) in vec2 aTexture;
 				layout(location = 2) in vec3 aNormal;
-				layout(location = 3) in mat4 aModel;
+				layout(location = 4) in mat4 aModel;
 				
 				uniform mat4 uProjection;
 				uniform mat4 uModelView;
@@ -80,15 +80,15 @@ export default class TextureShader extends Shader {
 				out vec4 color;
 				
 				vec4 getAmbient() {
-					vec4 diffuseColor = vec4(vec3(texture(uMaterial.diffuse, vTexturePos).xyz), 1.0);
-					return vec4(uLight.ambient,1.0) * diffuseColor;
+					vec3 diffuseColor = vec3(texture(uMaterial.diffuse, vTexturePos).xyz);
+					return vec4(uLight.ambient * diffuseColor,1.0);
 				}
 				
 				vec4 getDiffuse(vec3 normal, vec3 lightDir) {
 					float diff = max(dot(normal, lightDir), 0.0);
 					vec4 diffuseColor = vec4(vec3(texture(uMaterial.diffuse, vTexturePos).xyz), 1.0);
 					
-					return diff * vec4(uLight.diffuse,1.0) * diffuseColor;
+					return vec4(diff * uLight.diffuse,1.0) * diffuseColor;
 				}
 				
 				vec4 getSpecular(vec3 normal, vec3 lightDir) {
@@ -106,7 +106,7 @@ export default class TextureShader extends Shader {
 						#endif
 					}
 					
-					return specular * vec4(uLight.specular,1.0) * vec4(vec3(texture(uMaterial.specular, vTexturePos)), 1.0); 
+					return vec4( uLight.specular * specular * vec3(texture(uMaterial.specular, vTexturePos)), 1.0); 
 				}
 				
 				vec4 directional() {
@@ -208,7 +208,9 @@ export default class TextureShader extends Shader {
 		const glGeometryBuffer = Shader.createAttributeInfo(gl, 0, geometryInfo.vertex, 12, 0);
 		const glUVBuffer = Shader.createAttributeInfo(gl, 1, geometryInfo.uv, 8, 0);
 		const glNormalBuffer = Shader.createAttributeInfo(gl, 2, geometryInfo.normal, 12, 0);
-		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, 3, geometryInfo.index ? true : false);
+
+		const amodelLoc = gl.getAttribLocation(this._shaderProgram, "aModel");
+		const glInstancedModelTransformBuffer = Shader.createInstancedModelMatrix(gl, instanceCount, amodelLoc, !!geometryInfo.index);
 
 		let glBufferIndex: WebGLBuffer = null;
 		let vertexCount = (geometryInfo.vertex.length/3)|0;
