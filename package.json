@@ -10,8 +10,8 @@
   "devDependencies": {
     "@types/webgl2": "^0.0.4",
     "browserify": "^16.2.3",
-    "http-server": "^0.11.1",
     "tsify": "^4.0.1",
+    "http-server": "^0.11.1",
     "typescript": "^3.5.2"
   }
 }

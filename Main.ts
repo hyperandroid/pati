@@ -4,6 +4,7 @@ import Texture from "./render/Texture";
 import {Loader} from "./platform/Loader";
 
 new Loader().addImage([
+	"assets/lava.jpg",
 	"assets/diffuse.png",
 	"assets/specular.png",
 	"assets/cubemap0/back.jpg",
@@ -18,15 +19,15 @@ new Loader().addImage([
 	const gl = e.gl;
 
 	e.addTexture("diffuse", Texture.initialize(gl, {
-		element: l.getImage("diffuse.png"),
+		element: l.getImage("lava.jpg"),
 		wrap_mode: gl.CLAMP_TO_EDGE,
-		filter: gl.LINEAR,
+		minFilter: gl.LINEAR_MIPMAP_LINEAR,
 	}));
 
 	e.addTexture("specular", Texture.initialize(gl, {
-		element: l.getImage("specular.png"),
+		element: l.getImage("lava.jpg"),
 		wrap_mode: gl.CLAMP_TO_EDGE,
-		filter: gl.LINEAR,
+		minFilter: gl.LINEAR_MIPMAP_LINEAR,
 	}));
 
 	e.addTexture("cubemap", Texture.initializeCubeMap(gl,

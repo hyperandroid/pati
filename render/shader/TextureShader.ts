@@ -79,19 +79,19 @@ export default class TextureShader extends Shader {
 
 				out vec4 color;
 				
-				vec4 getAmbient() {
-					vec3 diffuseColor = vec3(texture(uMaterial.diffuse, vTexturePos).xyz);
-					return vec4(uLight.ambient * diffuseColor,1.0);
+				vec3 getAmbient() {
+					vec3 diffuseColor = texture(uMaterial.diffuse, vTexturePos).xyz;
+					return uLight.ambient * diffuseColor;
 				}
 				
-				vec4 getDiffuse(vec3 normal, vec3 lightDir) {
+				vec3 getDiffuse(vec3 normal, vec3 lightDir) {
 					float diff = max(dot(normal, lightDir), 0.0);
-					vec4 diffuseColor = vec4(vec3(texture(uMaterial.diffuse, vTexturePos).xyz), 1.0);
+					vec3 diffuseColor = texture(uMaterial.diffuse, vTexturePos).xyz;
 					
-					return vec4(diff * uLight.diffuse,1.0) * diffuseColor;
+					return diff * uLight.diffuse * diffuseColor;
 				}
 				
-				vec4 getSpecular(vec3 normal, vec3 lightDir) {
+				vec3 getSpecular(vec3 normal, vec3 lightDir) {
 					float specular = 0.0;
 					if (dot(normal, lightDir)>0.0) {					
 						vec3 viewDir = normalize(uViewPos - vFragmentPos);
@@ -106,7 +106,7 @@ export default class TextureShader extends Shader {
 						#endif
 					}
 					
-					return vec4( uLight.specular * specular * vec3(texture(uMaterial.specular, vTexturePos)), 1.0); 
+					return uLight.specular * specular * vec3(texture(uMaterial.specular, vTexturePos)); 
 				}
 				
 				vec4 directional() {
@@ -114,11 +114,11 @@ export default class TextureShader extends Shader {
 					return vec4(0,0,0,0);
 				}
 				
-				vec4 point() {
+				vec3 point() {
 					vec3 norm = 		normalize(vNormal);
 					vec3 lightDir = 	normalize(uLight.position - vFragmentPos);
 					
-					vec4 color = 		getAmbient() + 
+					vec3 color = 		getAmbient() + 
 										getDiffuse(norm, lightDir) + 
 										getSpecular(norm, lightDir);
 									
@@ -135,7 +135,8 @@ export default class TextureShader extends Shader {
 				}				
 
 				void main() {
-					color = point(); 
+					color = vec4(point(), 1.0); 
+					// color = vec4(vec3(gl_FragCoord.z), 1.0);
 				}
 			`,
 			attributes: ["aPosition", "aTexture", "aNormal", "aModel"],
@@ -262,6 +263,10 @@ export default class TextureShader extends Shader {
 		this.set3FV("uViewPos", e.cameraPosition());
 
 		gl.bindVertexArray(info.vao);
+
+		// if (info.indexBuffer) {
+		// 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, info.indexBuffer);
+		// }
 
 		info.instanceBuffer.draw(gl, info.vertexCount, info.instanceCount);
 

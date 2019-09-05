@@ -33,7 +33,7 @@ export default class Matrix4 {
 		if (zFar !== Infinity) {
 			const nf = 1 / (zNear - zFar);
 			out[10] = (zFar + zNear) * nf;
-			out[14] = (2.0 * zFar * zNear) * nf;
+			out[14] = 2.0 * zFar * zNear * nf;
 		} else {
 			out[10] = -1.0;
 			out[14] = -2.0 * zNear;
@@ -286,7 +286,7 @@ export default class Matrix4 {
 		return out;
 	}
 
-	static translate(out: Float32Array, m: Float32Array, v: Vector3) : Float32Array {
+	static translate(out: Float32Array, m: Float32Array, v: Float32Array) : Float32Array {
 		const x = v[0], y = v[1], z = v[2];
 
 		if (m === out) {

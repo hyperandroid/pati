@@ -19,7 +19,8 @@ export interface TextureInitializer {
 	pixels?: ArrayBufferView;
 	element?: TextureInitializerElement|TextureInitializerElement[];
 
-	filter?: number;			// defaults to LINEAR (NEAREST | LINEAR | NEAREST_MIPMAP_NEAREST | ...)
+	minFilter?: number;			// defaults to LINEAR (NEAREST | LINEAR | NEAREST_MIPMAP_NEAREST | ...)
+	magFilter?: number;
 	wrap_mode?: number;			// defaults to CLAMP_TO_EDGE
 }
 
@@ -43,7 +44,7 @@ export default class Texture {
 				target: gl.TEXTURE_CUBE_MAP,
 				element: elements,
 				wrap_mode: gl.CLAMP_TO_EDGE,
-				filter: gl.LINEAR,
+				minFilter: gl.LINEAR,
 				internal_format: gl.RGBA,
 				format: gl.RGBA
 			});
@@ -133,21 +134,25 @@ export default class Texture {
 		texture.target = info.target;
 
 		// default filter if not present
-		if (info.filter===void 0) {
-			info.filter = gl.LINEAR;
+		if (info.minFilter===void 0) {
+			info.minFilter = gl.LINEAR;
 		}
 
 		// generate mipmaps if needed
-		if (info.filter===gl.NEAREST_MIPMAP_NEAREST ||
-			info.filter===gl.NEAREST_MIPMAP_LINEAR ||
-			info.filter===gl.LINEAR_MIPMAP_NEAREST ||
-			info.filter===gl.LINEAR_MIPMAP_LINEAR) {
+		if (info.minFilter===gl.NEAREST_MIPMAP_NEAREST ||
+			info.minFilter===gl.NEAREST_MIPMAP_LINEAR ||
+			info.minFilter===gl.LINEAR_MIPMAP_NEAREST ||
+			info.minFilter===gl.LINEAR_MIPMAP_LINEAR) {
 
 			gl.generateMipmap(info.target);
 		}
 
-		gl.texParameteri(info.target, gl.TEXTURE_MIN_FILTER, info.filter);
-		gl.texParameteri(info.target, gl.TEXTURE_MAG_FILTER, info.filter);
+		if (info.magFilter===void 0) {
+			info.magFilter = gl.LINEAR;
+		}
+
+		gl.texParameteri(info.target, gl.TEXTURE_MIN_FILTER, info.minFilter);
+		gl.texParameteri(info.target, gl.TEXTURE_MAG_FILTER, info.magFilter);
 
 		// default wrap mode
 		if (info.wrap_mode===void 0) {
