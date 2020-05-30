@@ -22,6 +22,7 @@ export interface ShaderVAOInfo {
 	instanceBuffer: ModelMatrixInstancingInfo;
 	vertexCount: number;
 	instanceCount: number;
+	backFaceDisabled?: boolean;
 }
 
 export interface VAOGeometryInfo {
@@ -30,6 +31,7 @@ export interface VAOGeometryInfo {
 	normal?: Float32Array;
 	index?: Uint16Array;
 	instanceCount?: number;
+	cullDisabled?: boolean;
 }
 
 // make instancing batches taking at most MAX_BUFFER_INSTANCE bytes.

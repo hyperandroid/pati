@@ -48,6 +48,9 @@ export default class Engine {
 		this.gl = Platform.glContext;
 
 		this.resize(w, h, true);
+
+		// ahemhem
+		(window as any).engine = this;
 	}
 
 	init() {
@@ -96,6 +99,27 @@ export default class Engine {
 		this.mesh["cube"] = new Cube(this,
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 16), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
+
+		this.mesh["earth"] = Mesh.tessellateSphere(this, {
+				material: Material.Texture(
+					this.getTexture("jupiter"),
+					this.getTexture("specular"),
+					2.2,
+					32
+				),
+				subdivisions: 4,
+			}).setScale(20);
+
+		this.mesh["moon"] = Mesh.tessellateSphereRec(this, {
+			material: Material.Texture(
+				this.getTexture("earth"),
+				this.getTexture("specular"),
+				2.2,
+				32
+			),
+			subdivisions: 4,
+			cullDisabled: true,
+		}).setScale(20).setPosition(45,0,0);
 
 		this.currentCamera.setup(
 			[0, 25, -10],
@@ -215,15 +239,17 @@ export default class Engine {
 		this.currentCamera.sync();
 
 		this.updateInstancingMatrices();
-		this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
+		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
+		this.mesh["earth"].render(this);
+		const moon = this.mesh["moon"];
+		(moon as Mesh).euler(0, (this.time%25000)/25000*2*Math.PI, 0 );
+		moon.render(this);
 
 		const light = this.light['point'] as PointLight;
 		light.setPosition(
-			2+5*Math.cos((this.time%15000)/15000*2*Math.PI),
+			25*Math.cos((this.time%15000)/15000*2*Math.PI),
 			5,
-			4+5*Math.sin((this.time%15000)/15000*2*Math.PI));
-
-		// this.mesh["cube2"].renderInstanced(this, this.matrices, N*N);
+			25*Math.sin((this.time%15000)/15000*2*Math.PI));
 
 		(this.mesh["lightprobe"] as Mesh).setPositionV(light.getPosition());
 		(this.mesh["lightprobe"] as Mesh).setScale(.3);
@@ -232,8 +258,19 @@ export default class Engine {
 		lp.render(this);
 		this.mesh["skybox"].render(this);
 
-		const p = light.getPosition();
-		this.currentCamera.lookAt(p[0], -p[1], p[2]);
+		// const p = light.getPosition();
+		// this.currentCamera.lookAt(p[0], -p[1], p[2]);
+
+
+		// const angle = ((Date.now() % 30000) / 30000)*2*Math.PI;
+		// const angle2 = ((Date.now() % 40000) / 40000)*2*Math.PI;
+		// const r = 10;
+		// Vector3.set(this.currentCamera.position,
+		// 	0,Math.sin(angle)*3.5 + 5,0);
+		// this.currentCamera.lookAt(
+		// 	r*Math.cos(angle),Math.sin(angle2)*3.5 + 5,r*Math.sin(angle)		// from
+		// );
+
 		this.currentCamera.sync();
 
 		this.time += delta;

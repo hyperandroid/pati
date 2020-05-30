@@ -81,7 +81,7 @@ export default class TextureShader extends Shader {
 				
 				vec3 getAmbient() {
 					vec3 diffuseColor = texture(uMaterial.diffuse, vTexturePos).xyz;
-					return uLight.ambient * diffuseColor;
+					return (uLight.ambient + uMaterial.ambient) * diffuseColor;
 				}
 				
 				vec3 getDiffuse(vec3 normal, vec3 lightDir) {
@@ -234,6 +234,7 @@ export default class TextureShader extends Shader {
 			normalBuffer: glNormalBuffer,
 			vertexCount: vertexCount,
 			instanceCount,
+			backFaceDisabled: geometryInfo.cullDisabled,
 		};
 	}
 
@@ -241,8 +242,13 @@ export default class TextureShader extends Shader {
 
 		const gl = e.gl;
 
+		if (info.backFaceDisabled) {
+			this._gl.disable(this._gl.CULL_FACE);
+		}
+
 		this.use();
 		this.setMatrix4fv("uProjection", false, e.projectionMatrix());
+		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 
 		const material = rc.getMaterial().definition;
 
@@ -259,7 +265,6 @@ export default class TextureShader extends Shader {
 		this.set3FV("uLight.specular", light.getSpecular());
 		this.set3FV("uLight.position", light.getPosition());
 
-		this.setMatrix4fv("uModelView", false, e.cameraMatrix());
 		this.set3FV("uViewPos", e.cameraPosition());
 
 		gl.bindVertexArray(info.vao);
@@ -272,5 +277,10 @@ export default class TextureShader extends Shader {
 
 		gl.bindVertexArray(null);
 		this.notUse();
+
+		if (info.backFaceDisabled) {
+			this._gl.enable(this._gl.CULL_FACE);
+		}
+
 	}
 }

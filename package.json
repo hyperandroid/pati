@@ -5,13 +5,14 @@
     "tsc": "echo 'TSC' && tsc",
     "browserify": "echo 'Browserify' && mkdir -p build && browserify -p tsify -d -r ./Main.js:Main > build/all.js",
     "build": "npm run tsc && npm run browserify && echo \"\" >> build/all.js && echo \"require('Main');\" >> build/all.js",
-    "serve": "http-server -c-1"
+    "serve": "http-server -c-1",
+    "browserifyM": "echo 'Browserify Myriahedral' && mkdir -p build && browserify -p tsify -d -r ./MyriahedralTest.js:Main > build/myriahedral.js",
+    "buildM": "npm run tsc && npm run browserifyM && echo \"\" >> build/myriahedral.js && echo \"require('Main');\" >> build/myriahedral.js"
   },
   "devDependencies": {
-    "@types/webgl2": "^0.0.4",
     "browserify": "^16.2.3",
-    "tsify": "^4.0.1",
     "http-server": "^0.11.1",
-    "typescript": "^3.5.2"
+    "tsify": "^4.0.1",
+    "typescript": "^3.9.0"
   }
 }

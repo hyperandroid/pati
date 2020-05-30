@@ -4,6 +4,24 @@ import RenderComponent from "./RenderComponent";
 import Engine from "./Engine";
 import {ShaderVAOInfo} from "./shader/Shader";
 import Material, {MaterialType} from "./Material";
+import SphereTessellator, {Vector3T} from "../math/SphereTessellator";
+import Myriahedral from "./geometry/Myriahedral";
+
+export interface MeshParams {
+	vertices: Float32Array,
+	uv: Float32Array,
+	index?: Uint16Array,
+	normals?: Float32Array,
+	material: Material,
+	cullDisabled?: boolean,
+}
+
+export interface TessellationInfo {
+	subdivisions: number;
+	material: Material;
+	instanceCount?: number;
+	cullDisabled?: boolean;
+}
 
 export default class Mesh implements RenderComponent {
 
@@ -16,10 +34,6 @@ export default class Mesh implements RenderComponent {
 
 	transformDirty = true;
 	transform = Matrix4.create();
-
-	instanceCount = 1;
-
-	instancedTransform : WebGLBuffer = null;
 
 	constructor() {
 
@@ -37,7 +51,12 @@ export default class Mesh implements RenderComponent {
 	 *  stride of (coords per vertex uv)*sizeof(FLOAT) = (2*4), offset num_vertices * sizeof(FLOAT)
 	 *
 	 */
-	from(e: Engine, vertices: Float32Array, uv: Float32Array, index: Uint16Array, material: Material, instanceCount: number) {
+	from(e: Engine, p: MeshParams, instanceCount: number) {
+
+		const vertices = p.vertices;
+		const uv= p.uv;
+		const index= p.index;
+		const material= p.material;
 
 		this.material = material;
 
@@ -47,26 +66,29 @@ export default class Mesh implements RenderComponent {
 			case MaterialType.REFLECTIVE:
 				this.shaderInfo = e.getShader("reflectiveEnvMap").createVAO(gl, {
 					vertex: vertices,
-					normal: this.generateNormals(vertices, index),
+					normal: p.normals ?? this.generateNormals(vertices, index),
 					index,
-					instanceCount
+					instanceCount,
+					cullDisabled: p.cullDisabled,
 				}, material);
 				break;
 			case MaterialType.REFRACTIVE:
 				this.shaderInfo = e.getShader("refractiveEnvMap").createVAO(gl, {
 					vertex: vertices,
-					normal: this.generateNormals(vertices, index),
+					normal: p.normals ?? this.generateNormals(vertices, index),
 					index,
-					instanceCount
+					instanceCount,
+					cullDisabled: p.cullDisabled,
 				}, material);
 				break;
 			case MaterialType.TEXTURE:
 				this.shaderInfo = e.getShader("texture").createVAO(gl, {
 					vertex: vertices,
 					uv,
-					normal: this.generateNormals(vertices, index),
+					normal: p.normals ?? this.generateNormals(vertices, index),
 					index,
-					instanceCount
+					instanceCount,
+					cullDisabled: p.cullDisabled,
 				}, material);
 				break;
 			case MaterialType.SKYBOX:
@@ -74,7 +96,7 @@ export default class Mesh implements RenderComponent {
 					vertex: vertices,
 					uv,
 					index,
-					instanceCount
+					instanceCount,
 				}, material);
 				break;
 			case MaterialType.COLOR:
@@ -83,6 +105,8 @@ export default class Mesh implements RenderComponent {
 			default:
 				throw new Error(`Unknown material type. ${material}`);
 		}
+
+		return this;
 	}
 
 	private generateNormals(vertices: Float32Array, index?: Uint16Array) : Float32Array {
@@ -198,16 +222,19 @@ export default class Mesh implements RenderComponent {
 		this.rotation[1] = y;
 		this.rotation[2] = z;
 		this.transformDirty = true;
+		return this;
 	}
 
 	setPosition(x: number, y: number, z: number) {
 		Vector3.set(this.position, x, y, z);
 		this.transformDirty = true;
+		return this;
 	}
 
 	setPositionV(a: ArrayLike<number>) {
 		Vector3.copy(this.position, a);
 		this.transformDirty = true;
+		return this;
 	}
 
 	getPosition() : Float32Array {
@@ -217,35 +244,40 @@ export default class Mesh implements RenderComponent {
 	setScale(s: number) {
 		Vector3.set(this.scale, s,s,s);
 		this.transformDirty = true;
+		return this;
 	}
 
-	static Sphere(e: Engine, r: number, long_segments: number, lat_segments: number, material: Material) : Mesh {
+	static tessellateSphereRec(e: Engine, i: TessellationInfo): Mesh {
+		// const data = new SphereTessellator().tessellateFromTetrahedronRec(i.subdivisions);
 
-		const vertices = new Float32Array((1+long_segments)*(1+lat_segments));
+		const m = new Myriahedral();
+		const data = m.getMeshData();
 
-		let index = 0;
+		return new Mesh().from(e, {
+			...data,
+			material: i.material,
+			cullDisabled: i.cullDisabled,
+		}, i.instanceCount ?? 1);
 
-		for(let j = 0; j<lat_segments; j++) {
-			const u0 = (j-lat_segments/2)*Math.PI;	// 0 .. pi
-			const u1 = (j-lat_segments/2)*Math.PI;	// 0 .. pi
-			for(let i = 0; i < long_segments; i++) {
+	}
 
-				const t0 = (i-long_segments)*2*Math.PI;
-				const t1 = (i-long_segments)*2*Math.PI;
+	static tessellateSphere(e: Engine, i: TessellationInfo): Mesh {
+		const data = new SphereTessellator().tessellateFromTetrahedronRec(i.subdivisions);
 
-				const x = r*Math.sin(u0)*Math.cos(t0);
-				const y = r*Math.sin(u0)*Math.sin(t0);
-				const z = r*Math.cos(t0);
+		return new Mesh().from(e, {
+			...data,
+			material: i.material,
+			cullDisabled: true,
+		}, i.instanceCount ?? 1);
+	}
 
-				vertices[index  ] = x;
-				vertices[index++] = y;
-				vertices[index++] = z;
-			}
-		}
+	static tessellateSphereFromCube(e: Engine, i: TessellationInfo): Mesh {
+		const data = new SphereTessellator().tessellateFromCube(i.subdivisions);
 
-		const m = new Mesh();
-		// m.from(e, vertices, uv, null, material, 1);
-
-		return m;
+		return new Mesh().from(e, {
+			...data,
+			material: i.material,
+			cullDisabled: i.cullDisabled,
+		}, i.instanceCount ?? 1);
 	}
 }

@@ -7,6 +7,9 @@ new Loader().addImage([
 	"assets/lava.jpg",
 	"assets/diffuse.png",
 	"assets/specular.png",
+	"assets/earth.jpg",
+	"assets/moon.jpg",
+	"assets/jupiter.jpg",
 	"assets/cubemap0/back.jpg",
 	"assets/cubemap0/bottom.jpg",
 	"assets/cubemap0/front.jpg",
@@ -18,8 +21,26 @@ new Loader().addImage([
 	const e = new Engine(window.innerWidth, window.innerHeight);
 	const gl = e.gl;
 
+	e.addTexture("earth", Texture.initialize(gl, {
+		element: l.getImage("earth.jpg"),
+		wrap_mode: gl.REPEAT,
+		minFilter: gl.LINEAR_MIPMAP_LINEAR,
+	}));
+
+	e.addTexture("jupiter", Texture.initialize(gl, {
+		element: l.getImage("jupiter.jpg"),
+		wrap_mode: gl.REPEAT,
+		minFilter: gl.LINEAR_MIPMAP_LINEAR,
+	}));
+
+	e.addTexture("moon", Texture.initialize(gl, {
+		element: l.getImage("moon.jpg"),
+		wrap_mode: gl.REPEAT,
+		minFilter: gl.LINEAR_MIPMAP_LINEAR,
+	}));
+
 	e.addTexture("diffuse", Texture.initialize(gl, {
-		element: l.getImage("lava.jpg"),
+		element: l.getImage("diffuse.png"),
 		wrap_mode: gl.CLAMP_TO_EDGE,
 		minFilter: gl.LINEAR_MIPMAP_LINEAR,
 	}));
