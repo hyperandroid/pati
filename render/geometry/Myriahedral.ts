@@ -1,3 +1,4 @@
+import Vector3 from "../../math/Vector3";
 
 export interface GeometryInfoIndexed {
 	vertices: Float32Array;
@@ -10,6 +11,7 @@ export interface GeometryInfoIndexed {
 export class Vertex {
 
 	index = 0;
+	wasCut = false;
 
 	constructor(public x: number, public y: number, public z: number) {
 	}
@@ -29,6 +31,15 @@ export class Vertex {
 		this.y *= l;
 		this.z *= l;
 	}
+
+	clone(): Vertex {
+		return new Vertex(this.x, this.y, this.z);
+	}
+
+	dot(o: Vertex) {
+		// assumes normalized.
+		return this.x*o.x + this.y*o.y + this.z*o.z;
+	}
 }
 
 export class Edge {
@@ -37,10 +48,15 @@ export class Edge {
 	w1 = 0;
 	wc = 0;
 
-	centerIndex = -1;
+	centerIndex = -1;	// when an edge is split during recursive subdivision,
+						// this is the newly created vertex index.
+
+	faceIndices: number[] = [];		// polygon index
 
 	v0 = -1;
 	v1 = -1;
+
+	wasCut = false;
 
 	constructor(public vertex0: Vertex, public vertex1: Vertex) {
 		this.v0 = vertex0.index;
@@ -54,10 +70,27 @@ export interface MST {
 	wc: number;
 }
 
-export interface FacesEdge extends MST {
+export class FacesEdge implements MST {
+
+	parent: FacesEdge;
+	children: FacesEdge[] = [];
+
+	v0: number;
+	v1: number;
+	wc: number;
+
 	// edge vertex indices
 	v0e: number;
 	v1e: number;
+
+	constructor(v0e: number, v1e: number) {
+		this.v0 = -1;
+		this.v1 = -1;
+		this.wc = -1;
+		this.v0e = v0e;
+		this.v1e = v1e;
+		this.parent = null;
+	}
 }
 
 
@@ -73,7 +106,7 @@ const tetrahedronVertices = [
 	[0.0, 2.0, 0.0],
 ]
 const tetrahedronEdges = [
-	[0, 1], [1, 2], [0, 2], [0, 3], [2, 3], [1, 3]
+	[0, 1], [1, 2], [2, 0], [0, 3], [2, 3], [1, 3]
 ];
 
 export default class Myriahedral {
@@ -83,10 +116,13 @@ export default class Myriahedral {
 	index: number[] = [];
 	subdivisions = 6;
 
+	foldsMST: FacesEdge[];
 	folds: MSTNode[];
-	cuts: MSTNode[];
+	cuts: Edge[];
 
-	constructor() {
+	constructor(subdivisions: number) {
+
+		this.subdivisions = subdivisions;
 
 		tetrahedronVertices.forEach(v => {
 			this.insertVertex(new Vertex(v[0], v[1], v[2]));
@@ -102,67 +138,108 @@ export default class Myriahedral {
 		this.recurse(1, 0, 1, 3);
 		this.recurse(1, 1, 2, 3);
 
-		// clone this.edges into edgesMST
-		const edgesMST = new Map<number, Map<number, Edge>>();
-		this.edges.forEach( (v,k) => {
-			edgesMST.set(k, new Map<number, Edge>());
-
-			v.forEach( (e,kk) => {
-				if (e.centerIndex===-1) {
-					edgesMST.get(k).set(kk, e);
-				}
-			});
-		});
-
-		const foldsMST = this.calcMST(this.calculateAdjacentFaces());
-		this.folds = foldsMST.map(e => {
+		this.foldsMST = this.calcMST(this.transformVertEdgesToFaceEdges());
+		this.folds = this.foldsMST.map(e => {
 			return {
 				v0: e.v0,
 				v1: e.v1,
 			}
 		});
 
-		// get non-folded edges' original vertex edge. these are cuts.
-		foldsMST.forEach( f => {
+		// FOLDS
+
+		// clone this.edges into edgesMST
+		const edgesMST = new Map<number, Map<number, Edge>>();
+		this.edges.forEach( (v,k) => {
+
+			let mm = edgesMST.get(k);
+			if (mm===undefined) {
+				mm = new Map<number, Edge>();
+				edgesMST.set(k, mm);
+			}
+
+			v.forEach( (e,kk) => {
+				if (e.centerIndex===-1) {
+					mm.set(kk, e);
+				}
+			});
+		});
+
+		// CUTS (not needed but beautiful to visualise)
+
+		// all non fold edges, are cut.
+		// folds are face-face edges, so use original vertices edge.
+		this.foldsMST.forEach( f => {
 			edgesMST.get(f.v0e)?.delete(f.v1e);
 			edgesMST.get(f.v1e)?.delete(f.v0e);
 		})
 		this.cuts = [];
 		edgesMST.forEach(es => {
 			es.forEach(e => {
-				this.cuts.push({
-					v0: e.v0,
-					v1: e.v1,
-				});
+				this.cuts.push(e);
 			})
 		});
 
-		// const mstDistinctFaces = new Set<number>();
-		// this.folds.forEach(e => {
-		// 	mstDistinctFaces.add(e[0]);
-		// 	mstDistinctFaces.add(e[1]);
-		// })
-		// console.log(`mst distinct faces size ${mstDistinctFaces.size}`);
-		//
-		// console.log(`mst size ${this.folds.length}`);
-		//
-		// console.log(`triangles: ${this.index.length/3}`);
-		// const distinctVertices= new Set<number>();
-		// this.index.forEach( v=> distinctVertices.add(v));
-		// console.log(`distinct vertices in shpere: ${distinctVertices.size}`)
-		// console.log(`vertices count: ${this.vertex.length}`);
-		//
-		// const distinctVerticesCuts = new Set<number>();
-		// cuts.edges.forEach(e => {
-		// 	distinctVerticesCuts.add(e.v0);
-		// 	distinctVerticesCuts.add(e.v1);
-		// })
-		// console.log(`cuts distinct vertices count ${distinctVerticesCuts.size}`);
-		// console.log(`cuts: ${cuts.edges.length} folds: ${folds.edges.length}`);
+		// unfold
+		this.unfold(25);
+	}
+
+	/**
+	 *
+	 */
+	cutGeometry() {
+
+		const cut = (node: Edge, v0: Vertex, index: number) => {
+
+			if (v0.wasCut) {
+				return;
+			}
+
+			v0.wasCut = true;
+
+			node.faceIndices.forEach(faceIndex => {
+				const newVertex0 = v0.clone();
+				this.insertVertex(newVertex0);
+				const newVertex0Index = newVertex0.index;
+
+				if (this.index[faceIndex * 3] === v0.index) {
+					this.index[faceIndex * 3] = newVertex0Index;
+				} else if (this.index[faceIndex * 3 + 1] === v0.index) {
+					this.index[faceIndex * 3 + 1] = newVertex0Index;
+				} else if (this.index[faceIndex * 3 + 2] === v0.index) {
+					this.index[faceIndex * 3 + 2] = newVertex0Index;
+				}
+
+				if (index===0) {
+					node.vertex0 = newVertex0;
+				} else {
+					node.vertex1 = newVertex0;
+				}
+
+			});
+		}
+
+		this.cuts.forEach((node,i) => {
+
+			if (!node.wasCut) {
+
+				node.wasCut = true;
+
+				const v0 = this.vertex[node.v0];
+				cut(node, v0, 0);
+				const v1 = this.vertex[node.v1];
+				cut(node, v1, 1);
+			} else {
+				console.log('cut twice');
+			}
+		});
+
+
 	}
 
 	calcMST(edges: FacesEdge[]): FacesEdge[] {
-		const helper = new Map<number, Map<number, FacesEdge>>();
+
+		const helper = new Map<number, Map<number, FacesEdge>>();	// faceid -> faceid -> faceEdge
 
 		function insert(f0: number, f1: number, e: FacesEdge) {
 
@@ -178,24 +255,26 @@ export default class Myriahedral {
 			}
 		}
 
-		edges.forEach(e=>{
-			e.wc*=-1;
+		edges.forEach(e=> {
+			e.wc *= -1;
 
 			let f0 = e.v0;
 			let f1 = e.v1;
 
-			insert(f0,f1,e);
-			insert(f1,f0,e);
+			insert(f0, f1, e);
+			insert(f1, f0, e);
 		});
 
 		const treeFaces: number[] = [];
 		const treeFacesSet: Set<number> = new Set();
 		treeFaces.push(edges[0].v0);
+		treeFacesSet.add(edges[0].v0);
 
 		const treeEdges: FacesEdge[] = [];
 
 		while(treeFacesSet.size !== this.index.length/3) {
 
+			let minFace = -1;
 			let minEdge: FacesEdge = null;
 			let minWC = Number.MAX_VALUE;
 			let nextFace = -1;
@@ -203,10 +282,12 @@ export default class Myriahedral {
 			treeFaces.forEach(face => {
 				// find minimum wc of any edge outgoing from face edge
 				helper.get(face).forEach((e, faceKey) => {
-					if (!treeFacesSet.has(faceKey) && e.wc < minWC && faceKey!==face) {
+					if (!treeFacesSet.has(faceKey) && e.wc < minWC) {
 						minEdge = e;
 						minWC = e.wc;
+
 						nextFace = faceKey;
+						minFace = face;
 					}
 				});
 			});
@@ -215,42 +296,48 @@ export default class Myriahedral {
 				treeFaces.push(nextFace);
 				treeEdges.push(minEdge);
 				treeFacesSet.add(nextFace);
+
+				const ancestor = treeFaces.indexOf(minFace)-1;
+				const parent = treeEdges[ancestor];
+
+				if (parent) {
+					minEdge.parent = parent;
+				}
+
 			} else {
 				console.error(`no more edges`);
 				break;
 			}
 		}
 
-		console.log(`clean end`);
-
 		return treeEdges;
 	}
 
-	private calculateAdjacentFaces(): FacesEdge[] {
+	private transformVertEdgesToFaceEdges(): FacesEdge[] {
 
-		function insert(v0: number, v1: number, faceIndex: number, edge: Edge) {
+		function insert(vertexIndex0: number, vertexIndex1: number, faceIndex: number, edge: Edge) {
 
-			if (v0>v1) {
-				[v0,v1]=[v1,v0];
+			// check whether we need to invert the edge data.
+			let ed = faceEdges.get(vertexIndex0)?.get(vertexIndex1);
+			if (ed===undefined) {
+				if (faceEdges.get(vertexIndex1)?.get(vertexIndex0)) {
+					[vertexIndex0, vertexIndex1] = [vertexIndex1, vertexIndex0];
+				}
 			}
 
-			let d = edges.get(v0);
+			let d = faceEdges.get(vertexIndex0);
 			if (d===undefined) {
 				d = new Map<number, FacesEdge>();
-				edges.set(v0, d);
+				faceEdges.set(vertexIndex0, d);
 			}
 
-			let d1 = d.get(v1);
+			let d1 = d.get(vertexIndex1);
 			if (d1===undefined) {
-				d1 = {
-					v0: -1,
-					v1: -1,
-					wc: -1,
-					v0e: edge.v0,
-					v1e: edge.v1,
-				};
-				d.set(v1, d1);
+				d1 = new FacesEdge(vertexIndex0,vertexIndex1);
+				d.set(vertexIndex1, d1);
 			}
+
+			edge.faceIndices.push( faceIndex );
 
 			d1.wc = edge.wc;
 			if (d1.v0===-1) {
@@ -264,15 +351,11 @@ export default class Myriahedral {
 			i0 = this.index[i0];
 			i1 = this.index[i1];
 
-			if (i0>i1) {
-				[i0,i1] = [i1,i0];
-			}
-
-			return this.edges.get(i0).get(i1);
+			return this.getEdgeByVertexIndices(i0,i1);
 		}
 
 		// edge v0 -> edge v1 -> indices of faces containing edge v0-v1
-		const edges = new Map<number, Map<number, FacesEdge>>();
+		const faceEdges = new Map<number, Map<number, FacesEdge>>();
 
 		for(let i = 0; i<this.index.length; i+=3) {
 			let wc: Edge;
@@ -285,9 +368,10 @@ export default class Myriahedral {
 			insert(this.index[i+2], this.index[i  ], i/3, wc);
 		}
 
+
 		const facePairs: FacesEdge[] = []
 		// obtain pairs of faces:
-		edges.forEach( es => {
+		faceEdges.forEach( es => {
 			es.forEach( faces => {
 				facePairs.push(faces);
 			});
@@ -300,9 +384,6 @@ export default class Myriahedral {
 
 		const vertices = new Float32Array(this.vertex.length * 3);
 		this.vertex.forEach((v, i) => {
-
-			v.normalize();
-
 			vertices[i * 3] = v.x;
 			vertices[i * 3 + 1] = v.y;
 			vertices[i * 3 + 2] = v.z;
@@ -310,7 +391,7 @@ export default class Myriahedral {
 
 		return {
 			vertices,
-			index: new Uint16Array(this.index),
+			index: this.index!==null ? new Uint16Array(this.index) : null,
 			uv: this.calculateUVIndexed(),
 			folds: this.folds,
 			cuts: this.cuts
@@ -334,12 +415,10 @@ export default class Myriahedral {
 	}
 
 	insertEdge(e: Edge, level: number) {
-		let v0 = e.v0;
-		let v1 = e.v1;
+		this.insertEdgeImpl(e.v0, e.v1, e, level);
+	}
 
-		if (v0 > v1) {
-			[v0, v1] = [v1, v0];
-		}
+	insertEdgeImpl(v0: number, v1: number, e:Edge, level: number) {
 
 		let data = this.edges.get(v0);
 		if (data === undefined) {
@@ -360,11 +439,8 @@ export default class Myriahedral {
 	}
 
 	getEdgeByVertexIndices(v0i: number, v1i: number): Edge | undefined {
-		if (v0i > v1i) {
-			[v0i, v1i] = [v1i, v0i];
-		}
 
-		return this.edges.get(v0i)?.get(v1i);
+		return this.edges.get(v0i)?.get(v1i) ?? this.edges.get(v1i)?.get(v0i);
 	}
 
 	/**
@@ -428,5 +504,107 @@ export default class Myriahedral {
 			e1.w1 = e.w1;
 			e1.wc = (e.wc + e.w1) / 2;
 		}
+	}
+
+	private buildFoldingTree() {
+		this.foldsMST.forEach( (fe) => {
+			if (fe.parent) {
+				fe.parent.children.push( fe );
+			} else {
+				console.log(`no parent`);
+			}
+		});
+	}
+
+	private normalizeGeometry() {
+		this.vertex.forEach((v) => {
+			v.normalize();
+		});
+	}
+
+	unfold(angleInDegs: number) {
+
+		this.normalizeGeometry();
+		this.buildFoldingTree();
+
+		this.preCutVertexCount = this.vertex.length;
+
+		this.cutGeometry();
+
+return;
+
+		// recursively unfold faces.
+		// on an sphere, all folds have a prent (cyclic).
+		// use an arbitrary one as parent: has just one child
+		const start = this.foldsMST[0];
+
+		const newVertex: Vertex[] = [
+			this.vertex[this.foldsMST[0].v0*3 ].clone(),
+			this.vertex[this.foldsMST[0].v0*3 +1 ].clone(),
+			this.vertex[this.foldsMST[0].v0*3 +2 ].clone(),
+		];
+
+		this.unfoldImpl(start, start, angleInDegs, newVertex);
+
+		console.log(`unfolded ${this.cc}/${this.foldsMST.length}/${this.folds.length}`);
+
+		this.vertex = newVertex;
+		this.index = [];
+		for(let i = 0; i<newVertex.length; i++) {
+			this.index.push(i);
+		}
+	}
+
+	preCutVertexCount = 0;
+	cc = 0;
+	private unfoldImpl(root: FacesEdge, node: FacesEdge, angleInRads: number, newVertex: Vertex[]) {
+
+		this.cc++;
+
+		const f0N = this.vertex[node.v0e];
+		const f1N = this.vertex[node.v1e];
+
+		const diffAngle = .1; // Math.min(Math.acos( f0N.dot(f1N) ), 0);
+
+		// rotate in f1, the vertex not in the vertex-edge described in FacesEdge
+
+		const vertex0InFace1 = this.index[ node.v0*3 ];
+		const vertex1InFace1 = this.index[ node.v0*3 + 1 ];
+		const vertex2InFace1 = this.index[ node.v0*3 + 2 ];
+
+		const vertexToRotate = vertex0InFace1 !== node.v0 && vertex0InFace1 !== node.v1 ?
+			vertex0InFace1 :
+			(vertex1InFace1 !== node.v0 && vertex1InFace1 !== node.v1 ?
+				vertex1InFace1 :
+				vertex2InFace1);
+
+		const toRotate = this.vertex[vertexToRotate];
+
+
+		const v = Vector3.createFromCoords(toRotate.x, toRotate.y, toRotate.z);
+		const knn = Vector3.createFromCoords(f1N.x - f0N.x, f1N.y - f0N.y, f1N.z - f0N.z);
+		const e = Vector3.normalize( Vector3.create(), knn );
+		const ev = Vector3.cross( Vector3.create(), e, v);
+		const dotev = Vector3.dot(e,v) * (1-Math.cos(diffAngle));
+
+		const vrot =
+			Vector3.add( Vector3.create(),
+				Vector3.add( Vector3.create(),
+					Vector3.mul(Vector3.create(), v, Math.cos(diffAngle)),
+					Vector3.mul( Vector3.create(), ev, Math.sin(diffAngle))
+				),
+				Vector3.mul( Vector3.create(), e, dotev)
+			);
+
+		newVertex.push( f0N.clone() );
+		newVertex.push( f1N.clone() );
+		newVertex.push( new Vertex(vrot[0], vrot[1], vrot[2]) );
+
+		node.children.forEach(c => {
+			if (c!==root) {
+				this.unfoldImpl(root, c, angleInRads, newVertex);
+			}
+		});
+
 	}
 }

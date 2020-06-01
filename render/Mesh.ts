@@ -250,7 +250,7 @@ export default class Mesh implements RenderComponent {
 	static tessellateSphereRec(e: Engine, i: TessellationInfo): Mesh {
 		// const data = new SphereTessellator().tessellateFromTetrahedronRec(i.subdivisions);
 
-		const m = new Myriahedral();
+		const m = new Myriahedral(i.subdivisions);
 		const data = m.getMeshData();
 
 		return new Mesh().from(e, {

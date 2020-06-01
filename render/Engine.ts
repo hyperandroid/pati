@@ -100,26 +100,27 @@ export default class Engine {
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 16), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-		this.mesh["earth"] = Mesh.tessellateSphere(this, {
+		this.mesh["earth"] = Mesh.tessellateSphereRec(this, {
 				material: Material.Texture(
 					this.getTexture("jupiter"),
 					this.getTexture("specular"),
 					2.2,
 					32
 				),
-				subdivisions: 4,
+				subdivisions: 5,
+				cullDisabled: true,
 			}).setScale(20);
 
-		this.mesh["moon"] = Mesh.tessellateSphereRec(this, {
-			material: Material.Texture(
-				this.getTexture("earth"),
-				this.getTexture("specular"),
-				2.2,
-				32
-			),
-			subdivisions: 4,
-			cullDisabled: true,
-		}).setScale(20).setPosition(45,0,0);
+		// this.mesh["moon"] = Mesh.tessellateSphereRec(this, {
+		// 	material: Material.Texture(
+		// 		this.getTexture("earth"),
+		// 		this.getTexture("specular"),
+		// 		2.2,
+		// 		32
+		// 	),
+		// 	subdivisions: 4,
+		// 	cullDisabled: true,
+		// }).setScale(20).setPosition(45,0,0);
 
 		this.currentCamera.setup(
 			[0, 25, -10],
@@ -241,9 +242,9 @@ export default class Engine {
 		this.updateInstancingMatrices();
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
 		this.mesh["earth"].render(this);
-		const moon = this.mesh["moon"];
-		(moon as Mesh).euler(0, (this.time%25000)/25000*2*Math.PI, 0 );
-		moon.render(this);
+		// const moon = this.mesh["moon"];
+		// (moon as Mesh).euler(0, (this.time%25000)/25000*2*Math.PI, 0 );
+		// moon.render(this);
 
 		const light = this.light['point'] as PointLight;
 		light.setPosition(

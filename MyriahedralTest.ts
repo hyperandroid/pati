@@ -1,6 +1,6 @@
 import Myriahedral from "./render/geometry/Myriahedral";
 
-const m = new Myriahedral();
+const m = new Myriahedral(6);
 const data = m.getMeshData();
 
 const faceCenter: number[] = [];
@@ -64,10 +64,12 @@ data.folds.forEach(e => {
 });
 console.log(`distinct vertices length: ${d.size}`);
 
-function render(polylineInfo: number[]) {
+function render(polylineInfo: number[], max) {
 	ctx.beginPath();
 
-	for (let i = 0; i < polylineInfo.length; i += 4) {
+	// ctx.globalCompositeOperation = 'xor';
+
+	for (let i = 0; i < max; i += 4) {
 
 		const w = c.width * polylineInfo[i + 2] - c.width * polylineInfo[i];
 		if (Math.abs(w) > c.width / 2) {
@@ -81,6 +83,19 @@ function render(polylineInfo: number[]) {
 	ctx.stroke();
 }
 
-render(polylineFolds);
-ctx.strokeStyle = 'red';
-render(polylineCuts);
+
+let N = 0;
+
+function run() {
+	ctx.strokeStyle = 'black';
+	// ctx.clearRect(0,0,c.width,c.height);
+	render(polylineFolds, polylineFolds.length);
+	render(polylineFolds, N%polylineFolds.length);
+	ctx.strokeStyle = 'red';
+	render(polylineCuts, polylineCuts.length);
+	// render(polylineCuts, N%polylineCuts.length);
+	// N+=4;
+	// requestAnimationFrame(run);
+}
+
+requestAnimationFrame(run);
