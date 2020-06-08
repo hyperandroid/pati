@@ -36,6 +36,8 @@ export default class Material {
 	readonly definition: MaterialDefinition;
 	readonly type: MaterialType;
 
+	renderMode?: number;
+
 	private constructor(t: MaterialType, def?: MaterialDefinition) {
 		this.type = t;
 		this.definition = def;

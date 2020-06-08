@@ -235,6 +235,7 @@ export default class TextureShader extends Shader {
 			vertexCount: vertexCount,
 			instanceCount,
 			backFaceDisabled: geometryInfo.cullDisabled,
+			renderMode: material.renderMode ?? this._gl.TRIANGLES,
 		};
 	}
 

@@ -86,7 +86,7 @@ export default class SkyboxShader extends Shader {
 			instanceBuffer: null,
 			instanceCount: 1,
 			normalBuffer: null,
-
+			renderMode: this._gl.TRIANGLES,
 		}
 	}
 

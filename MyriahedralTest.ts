@@ -1,6 +1,6 @@
-import Myriahedral from "./render/geometry/Myriahedral";
+import Myriahedral, {FacesEdge} from "./render/geometry/Myriahedral";
 
-const m = new Myriahedral(6);
+const m = new Myriahedral(6, false);
 const data = m.getMeshData();
 
 const faceCenter: number[] = [];
@@ -30,11 +30,19 @@ for (let i = 0; i < faceCenter.length; i += 3) {
 }
 
 const polylineFolds: number[] = [];
-data.folds.forEach((edge) => {
-	polylineFolds.push(foldsXY[edge.v0 * 2], foldsXY[edge.v0 * 2 + 1]);
-	polylineFolds.push(foldsXY[edge.v1 * 2], foldsXY[edge.v1 * 2 + 1]);
-});
+// data.folds.forEach((edge) => {
+// 	polylineFolds.push(foldsXY[edge.f0 * 2], foldsXY[edge.f0 * 2 + 1]);
+// 	polylineFolds.push(foldsXY[edge.f1 * 2], foldsXY[edge.f1 * 2 + 1]);
+// });
 
+
+function rec( edge: FacesEdge) {
+	polylineFolds.push(foldsXY[edge.fromFaceIndex * 2], foldsXY[edge.fromFaceIndex * 2 + 1]);
+	polylineFolds.push(foldsXY[edge.toFaceIndex * 2], foldsXY[edge.toFaceIndex * 2 + 1]);
+
+	edge.children.forEach( c=> rec(c));
+}
+rec(data.foldsMST.filter( f => { return f.parent===null })[0]);
 
 
 const cutsXY: number[] = [];
@@ -46,8 +54,8 @@ for (let i = 0; i < data.vertices.length; i += 3) {
 const polylineCuts: number[] = [];
 
 data.cuts.forEach((edge) => {
-	polylineCuts.push(cutsXY[edge.v0 * 2], cutsXY[edge.v0 * 2 + 1]);
-	polylineCuts.push(cutsXY[edge.v1 * 2], cutsXY[edge.v1 * 2 + 1]);
+	polylineCuts.push(cutsXY[edge.vertex0 * 2], cutsXY[edge.vertex0 * 2 + 1]);
+	polylineCuts.push(cutsXY[edge.vertex1 * 2], cutsXY[edge.vertex1 * 2 + 1]);
 });
 
 const c = document.createElement('canvas');
@@ -78,6 +86,7 @@ function render(polylineInfo: number[], max) {
 
 		ctx.moveTo(c.width * polylineInfo[i], c.height * polylineInfo[i + 1]);
 		ctx.lineTo(c.width * polylineInfo[i + 2], c.height * polylineInfo[i + 3]);
+		//ctx.arc(c.width * polylineInfo[i + 2], c.height * polylineInfo[i + 3], 2, 0, 2*Math.PI, false);
 	}
 
 	ctx.stroke();
@@ -88,14 +97,19 @@ let N = 0;
 
 function run() {
 	ctx.strokeStyle = 'black';
-	// ctx.clearRect(0,0,c.width,c.height);
-	render(polylineFolds, polylineFolds.length);
+	ctx.clearRect(0,0,c.width,c.height);
+	// render(polylineFolds, polylineFolds.length);
 	render(polylineFolds, N%polylineFolds.length);
 	ctx.strokeStyle = 'red';
-	render(polylineCuts, polylineCuts.length);
+	// render(polylineCuts, polylineCuts.length);
 	// render(polylineCuts, N%polylineCuts.length);
-	// N+=4;
+	//N+=4;
 	// requestAnimationFrame(run);
 }
 
 requestAnimationFrame(run);
+
+window.addEventListener("mousedown", (e) => {
+	N+=4;
+	run();
+});

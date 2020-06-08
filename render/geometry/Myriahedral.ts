@@ -5,13 +5,13 @@ export interface GeometryInfoIndexed {
 	index: Uint16Array;
 	uv: Float32Array;
 	folds: MSTNode[];
-	cuts: MSTNode[];
+	cuts: Edge[];
+	foldsMST: FacesEdge[];
 }
 
 export class Vertex {
 
 	index = 0;
-	wasCut = false;
 
 	constructor(public x: number, public y: number, public z: number) {
 	}
@@ -32,14 +32,21 @@ export class Vertex {
 		this.z *= l;
 	}
 
-	clone(): Vertex {
-		return new Vertex(this.x, this.y, this.z);
-	}
-
 	dot(o: Vertex) {
 		// assumes normalized.
 		return this.x*o.x + this.y*o.y + this.z*o.z;
 	}
+
+	clone() {
+		return new Vertex(this.x, this.y, this.z);
+	}
+}
+
+// from vertex to vertex, belongs with faceIndex.
+export interface EdgeInfo {
+	fromVertex: number;
+	toVertex: number;
+	faceIndex: number;
 }
 
 export class Edge {
@@ -51,52 +58,65 @@ export class Edge {
 	centerIndex = -1;	// when an edge is split during recursive subdivision,
 						// this is the newly created vertex index.
 
-	faceIndices: number[] = [];		// polygon index
+	// edge info: from->to, face index.
+	// two entries per edge.
+	faceIndices: number[] = [null, null];		// polygon index
 
-	v0 = -1;
-	v1 = -1;
-
-	wasCut = false;
-
-	constructor(public vertex0: Vertex, public vertex1: Vertex) {
-		this.v0 = vertex0.index;
-		this.v1 = vertex1.index;
+	constructor(public vertex0: number, public vertex1: number) {
 	}
+
+	facesDirection(i: EdgeInfo) {
+		let v0 = i.fromVertex;
+		let v1 = i.toVertex;
+
+		const index = (v0===this.vertex0 && v1===this.vertex1) ? 0 : 1;
+		this.faceIndices[index] = i.faceIndex;
+	}
+
+	swap() {
+		[this.faceIndices[0], this.faceIndices[1]] = [this.faceIndices[1], this.faceIndices[0]];
+		[this.vertex0, this.vertex1] = [this.vertex1, this.vertex0];
+	}
+
 }
 
-export interface MST {
-	v0: number;
-	v1: number;
-	wc: number;
-}
-
-export class FacesEdge implements MST {
+export class FacesEdge {
 
 	parent: FacesEdge;
 	children: FacesEdge[] = [];
 
-	v0: number;
-	v1: number;
-	wc: number;
+	wc = -1;
 
-	// edge vertex indices
-	v0e: number;
-	v1e: number;
-
-	constructor(v0e: number, v1e: number) {
-		this.v0 = -1;
-		this.v1 = -1;
-		this.wc = -1;
-		this.v0e = v0e;
-		this.v1e = v1e;
+	constructor(public edge: Edge) {
+		this.wc = edge.wc;
 		this.parent = null;
+	}
+
+	get fromFaceIndex() {
+		return this.edge.faceIndices[0];
+	}
+
+	get toFaceIndex() {
+		return this.edge.faceIndices[1];
+	}
+
+	get v0() {
+		return this.edge.vertex0;
+	}
+
+	get v1() {
+		return this.edge.vertex1;
+	}
+
+	swap() {
+		this.edge.swap();
 	}
 }
 
 
 export interface MSTNode {
-	v0: number;
-	v1: number;
+	f0: number;
+	f1: number;
 }
 
 const tetrahedronVertices = [
@@ -106,21 +126,111 @@ const tetrahedronVertices = [
 	[0.0, 2.0, 0.0],
 ]
 const tetrahedronEdges = [
-	[0, 1], [1, 2], [2, 0], [0, 3], [2, 3], [1, 3]
+	[0, 1], [1, 2], [0, 2], [0, 3], [2, 3], [1, 3]
 ];
+
+class MM<T> {
+
+	map = new Map<number, Map<number, T>>();
+
+	constructor() {}
+
+	insert(k0: number, k1: number, v: T) {
+
+		let m = this.map.get(k0);
+
+		if (m===undefined) {
+			m = new Map<number, T>();
+			this.map.set(k0, m);
+		}
+
+		m.set(k1, v);
+	}
+
+	get(k0: number, k1: number) {
+		return this.map.get(k0)?.get(k1);
+	}
+
+	getI(k0: number, k1: number) {
+		return this.map.get(k0)?.get(k1) ?? this.map.get(k1)?.get(k0);
+	}
+
+	clone( predicate: (v: T, k0?: number, k1?: number) => boolean) {
+		const clone = new MM<T>();
+
+		this.forEach( (v,k0,k1) => {
+			if (predicate(v, k0, k1)) {
+					clone.insert(k0,k1,v);
+				}
+			})
+
+		return clone;
+	}
+
+	delete(k0: number, k1: number) {
+		this.map.get(k0)?.delete(k1);
+	}
+
+	forEach( cb: (v: T, k0?: number, k1?: number) => void) {
+		this.map.forEach( (mm, k0) => {
+			mm.forEach( (e, k1) => {
+				cb(e, k0, k1);
+			});
+		})
+	}
+
+	exists(k0: number, k1: number) {
+		return this.map.get(k0)?.get(k1) !==undefined;
+	}
+
+	toArray() : T[] {
+		const a : T[] = [];
+		this.forEach( v => a.push(v));
+		return a;
+	}
+
+	size() {
+		let c = 0;
+		this.forEach( _ => c++ );
+		return c;
+	}
+}
+
+class FaceInfo {
+
+	private nextFace: FaceInfo;
+
+	constructor(public readonly id: number, public edges: Edge[], public vertices: Vertex[], public prevVerticesIndices: number[]) {
+	}
+
+	set next(fi: FaceInfo) {
+		if (this.nextFace!==undefined) {
+			console.error('duplicated');
+		}
+
+		this.nextFace = fi;
+	}
+
+	get next() : FaceInfo {
+		return this.nextFace;
+	}
+}
 
 export default class Myriahedral {
 
-	edges = new Map<number, Map<number, Edge>>();
+	edges = new MM<Edge>();		// v0 -> v1 -> Edge
+	facesInfo: Map<number, FaceInfo>;
+
 	vertex: Vertex[] = [];
 	index: number[] = [];
 	subdivisions = 6;
 
+	faceEdges: MM<FacesEdge>;
 	foldsMST: FacesEdge[];
 	folds: MSTNode[];
 	cuts: Edge[];
 
-	constructor(subdivisions: number) {
+	constructor(subdivisions: number, cut?: boolean) {
 
 		this.subdivisions = subdivisions;
 
@@ -129,8 +239,7 @@ export default class Myriahedral {
 		})
 
 		tetrahedronEdges.forEach(e => {
-			const edge = new Edge(this.vertex[e[0]], this.vertex[e[1]]);
-			this.insertEdge(edge, 0);
+			this.insertEdge(this.vertex[e[0]], this.vertex[e[1]], 0);
 		});
 
 		this.recurse(1, 0, 2, 1);
@@ -138,137 +247,64 @@ export default class Myriahedral {
 		this.recurse(1, 0, 1, 3);
 		this.recurse(1, 1, 2, 3);
 
-		this.foldsMST = this.calcMST(this.transformVertEdgesToFaceEdges());
-		this.folds = this.foldsMST.map(e => {
-			return {
-				v0: e.v0,
-				v1: e.v1,
-			}
+		// get only actual edges, not the ones used to subdivide.
+		this.edges = this.edges.clone( v=> {
+			return v.centerIndex === -1
 		});
+
+		this.foldsMST = this.calcMST(this.transformVertEdgesToFaceEdges());
 
 		// FOLDS
 
 		// clone this.edges into edgesMST
-		const edgesMST = new Map<number, Map<number, Edge>>();
-		this.edges.forEach( (v,k) => {
-
-			let mm = edgesMST.get(k);
-			if (mm===undefined) {
-				mm = new Map<number, Edge>();
-				edgesMST.set(k, mm);
-			}
-
-			v.forEach( (e,kk) => {
-				if (e.centerIndex===-1) {
-					mm.set(kk, e);
-				}
-			});
-		});
+		const edgesMST = this.edges.clone( _ => {
+			return true;
+		})
 
 		// CUTS (not needed but beautiful to visualise)
 
 		// all non fold edges, are cut.
 		// folds are face-face edges, so use original vertices edge.
 		this.foldsMST.forEach( f => {
-			edgesMST.get(f.v0e)?.delete(f.v1e);
-			edgesMST.get(f.v1e)?.delete(f.v0e);
+			edgesMST.delete(f.edge.vertex0, f.edge.vertex1);
+			edgesMST.delete(f.edge.vertex1, f.edge.vertex0);
 		})
+
 		this.cuts = [];
-		edgesMST.forEach(es => {
-			es.forEach(e => {
-				this.cuts.push(e);
-			})
-		});
-
-		// unfold
-		this.unfold(25);
-	}
-
-	/**
-	 *
-	 */
-	cutGeometry() {
-
-		const cut = (node: Edge, v0: Vertex, index: number) => {
-
-			if (v0.wasCut) {
-				return;
-			}
-
-			v0.wasCut = true;
-
-			node.faceIndices.forEach(faceIndex => {
-				const newVertex0 = v0.clone();
-				this.insertVertex(newVertex0);
-				const newVertex0Index = newVertex0.index;
-
-				if (this.index[faceIndex * 3] === v0.index) {
-					this.index[faceIndex * 3] = newVertex0Index;
-				} else if (this.index[faceIndex * 3 + 1] === v0.index) {
-					this.index[faceIndex * 3 + 1] = newVertex0Index;
-				} else if (this.index[faceIndex * 3 + 2] === v0.index) {
-					this.index[faceIndex * 3 + 2] = newVertex0Index;
-				}
-
-				if (index===0) {
-					node.vertex0 = newVertex0;
-				} else {
-					node.vertex1 = newVertex0;
-				}
-
-			});
-		}
-
-		this.cuts.forEach((node,i) => {
-
-			if (!node.wasCut) {
-
-				node.wasCut = true;
-
-				const v0 = this.vertex[node.v0];
-				cut(node, v0, 0);
-				const v1 = this.vertex[node.v1];
-				cut(node, v1, 1);
-			} else {
-				console.log('cut twice');
-			}
+		edgesMST.forEach(v => {
+			this.cuts.push(v);
 		});
 
 
+		this.unfold(cut);
+
+		this.folds = this.foldsMST.map(e => {
+			return {
+				f0: e.edge.faceIndices[0],
+				f1: e.edge.faceIndices[1],
+			}
+		});
+
 	}
 
-	calcMST(edges: FacesEdge[]): FacesEdge[] {
+	calcMST(faceEdges: FacesEdge[]): FacesEdge[] {
 
-		const helper = new Map<number, Map<number, FacesEdge>>();	// faceid -> faceid -> faceEdge
+		const helper = new MM<FacesEdge>();	// faceid -> faceid -> faceEdge
 
-		function insert(f0: number, f1: number, e: FacesEdge) {
-
-			let dd = helper.get(f0);
-			if (!dd) {
-				dd = new Map<number, FacesEdge>();
-				helper.set(f0, dd);
-			}
-
-			const ed = dd.get(f1);
-			if (ed===undefined) {
-				dd.set(f1,e);
-			}
-		}
-
-		edges.forEach(e=> {
+		faceEdges.forEach(e=> {
 			e.wc *= -1;
 
-			let f0 = e.v0;
-			let f1 = e.v1;
+			let f0 = e.edge.faceIndices[0];
+			let f1 = e.edge.faceIndices[1];
 
-			insert(f0, f1, e);
-			insert(f1, f0, e);
+			helper.insert(f0, f1, e);
+			helper.insert(f1, f0, e);
 		});
 
 		const treeFaces: number[] = [];
 		const treeFacesSet: Set<number> = new Set();
-		treeFaces.push(edges[0].v0);
-		treeFacesSet.add(edges[0].v0);
+		treeFaces.push(faceEdges[0].edge.faceIndices[0]);
+		treeFacesSet.add(faceEdges[0].edge.faceIndices[0]);
 
 		const treeEdges: FacesEdge[] = [];
 
@@ -281,7 +317,7 @@ export default class Myriahedral {
 
 			treeFaces.forEach(face => {
 				// find minimum wc of any edge outgoing from face edge
-				helper.get(face).forEach((e, faceKey) => {
+				helper.map.get(face).forEach((e, faceKey) => {
 					if (!treeFacesSet.has(faceKey) && e.wc < minWC) {
 						minEdge = e;
 						minWC = e.wc;
@@ -313,71 +349,26 @@ export default class Myriahedral {
 		return treeEdges;
 	}
 
+	// form Edge to EdgeFace.
+	// EdgeFace keeps a directional Edge information (from face to face) based on
+	// edge's vertices traversal direction.
+	// 	v0 -> v1 -> F0
+	// 	v1 -> v0 -> F1
 	private transformVertEdgesToFaceEdges(): FacesEdge[] {
 
-		function insert(vertexIndex0: number, vertexIndex1: number, faceIndex: number, edge: Edge) {
+		this.faceEdges = new MM<FacesEdge>();
 
-			// check whether we need to invert the edge data.
-			let ed = faceEdges.get(vertexIndex0)?.get(vertexIndex1);
-			if (ed===undefined) {
-				if (faceEdges.get(vertexIndex1)?.get(vertexIndex0)) {
-					[vertexIndex0, vertexIndex1] = [vertexIndex1, vertexIndex0];
-				}
-			}
-
-			let d = faceEdges.get(vertexIndex0);
-			if (d===undefined) {
-				d = new Map<number, FacesEdge>();
-				faceEdges.set(vertexIndex0, d);
-			}
-
-			let d1 = d.get(vertexIndex1);
-			if (d1===undefined) {
-				d1 = new FacesEdge(vertexIndex0,vertexIndex1);
-				d.set(vertexIndex1, d1);
-			}
-
-			edge.faceIndices.push( faceIndex );
-
-			d1.wc = edge.wc;
-			if (d1.v0===-1) {
-				d1.v0 = faceIndex;
-			} else {
-				d1.v1 = faceIndex;
-			}
-		}
-
-		const getWC = (i0: number, i1: number): Edge => {
-			i0 = this.index[i0];
-			i1 = this.index[i1];
-
-			return this.getEdgeByVertexIndices(i0,i1);
-		}
-
-		// edge v0 -> edge v1 -> indices of faces containing edge v0-v1
-		const faceEdges = new Map<number, Map<number, FacesEdge>>();
-
-		for(let i = 0; i<this.index.length; i+=3) {
-			let wc: Edge;
-
-			wc = getWC(i, i+1);
-			insert(this.index[i  ], this.index[i+1], i/3, wc);
-			wc = getWC(i+1, i+2);
-			insert(this.index[i+1], this.index[i+2], i/3, wc);
-			wc = getWC(i+2, i);
-			insert(this.index[i+2], this.index[i  ], i/3, wc);
-		}
-
-
-		const facePairs: FacesEdge[] = []
-		// obtain pairs of faces:
-		faceEdges.forEach( es => {
-			es.forEach( faces => {
-				facePairs.push(faces);
-			});
+		this.edges.forEach(edge => {
+			this.faceEdges.insert(
+				edge.faceIndices[0],
+				edge.faceIndices[1],
+				new FacesEdge(edge)
+			);
 		});
 
-		return facePairs;
+		console.log(`edges: ${this.edges.size()}, faceEdges: ${this.faceEdges.size()}`)
+
+		return this.faceEdges.toArray();
 	}
 
 	getMeshData(): GeometryInfoIndexed {
@@ -392,13 +383,14 @@ export default class Myriahedral {
 		return {
 			vertices,
 			index: this.index!==null ? new Uint16Array(this.index) : null,
-			uv: this.calculateUVIndexed(),
+			uv: this.calculateUV(),
 			folds: this.folds,
-			cuts: this.cuts
+			cuts: this.cuts,
+			foldsMST: this.foldsMST,
 		};
 	}
 
-	protected calculateUVIndexed() {
+	protected calculateUV() {
 		const uv = new Float32Array(this.vertex.length * 2);
 
 		this.vertex.forEach((v, i) => {
@@ -414,33 +406,26 @@ export default class Myriahedral {
 		this.vertex.push(v);
 	}
 
-	insertEdge(e: Edge, level: number) {
-		this.insertEdgeImpl(e.v0, e.v1, e, level);
-	}
+	insertEdge(v0: Vertex, v1: Vertex, level: number) {
 
-	insertEdgeImpl(v0: number, v1: number, e:Edge, level: number) {
-
-		let data = this.edges.get(v0);
-		if (data === undefined) {
-			data = new Map<number, Edge>();
-			this.edges.set(v0, data);
-		}
-
-		if (data.get(v1) !== undefined) {
-			// edge exists.
+		if (this.edges.exists(v0.index,v1.index)) {
+			console.log(`insert of duplicated edge`);
 			return;
 		}
+
+		const e = new Edge(v0.index, v1.index);
 
 		e.w0 = level;
 		e.w1 = level;
 		e.wc = level + 1;
 
-		data.set(v1, e);
+		this.edges.insert(v0.index, v1.index, e);
+
+		return e;
 	}
 
 	getEdgeByVertexIndices(v0i: number, v1i: number): Edge | undefined {
-
-		return this.edges.get(v0i)?.get(v1i) ?? this.edges.get(v1i)?.get(v0i);
+		return this.edges.getI(v0i, v1i);
 	}
 
 	/**
@@ -453,7 +438,26 @@ export default class Myriahedral {
 	recurse(level: number, v0i: number, v1i: number, v2i: number) {
 
 		if (level === this.subdivisions) {
+			this.getEdgeByVertexIndices(v0i, v1i).facesDirection({
+				fromVertex: v0i,
+				toVertex: v1i,
+				faceIndex: this.index.length / 3
+			});
+
+			this.getEdgeByVertexIndices(v1i, v2i).facesDirection({
+				fromVertex: v1i,
+				toVertex: v2i,
+				faceIndex: this.index.length / 3
+			});
+
+			this.getEdgeByVertexIndices(v2i, v0i).facesDirection({
+				fromVertex: v2i,
+				toVertex: v0i,
+				faceIndex: this.index.length / 3
+			});
+
 			this.index.push(v0i, v1i, v2i);
+
 			return;
 		}
 
@@ -472,9 +476,9 @@ export default class Myriahedral {
 			this.splitEdge(mv2v0);
 		}
 
-		this.insertEdge(new Edge(this.vertex[mv0v1.centerIndex], this.vertex[mv2v0.centerIndex]), level);
-		this.insertEdge(new Edge(this.vertex[mv0v1.centerIndex], this.vertex[mv1v2.centerIndex]), level);
-		this.insertEdge(new Edge(this.vertex[mv2v0.centerIndex], this.vertex[mv1v2.centerIndex]), level);
+		this.insertEdge(this.vertex[mv0v1.centerIndex], this.vertex[mv2v0.centerIndex], level);
+		this.insertEdge(this.vertex[mv0v1.centerIndex], this.vertex[mv1v2.centerIndex], level);
+		this.insertEdge(this.vertex[mv2v0.centerIndex], this.vertex[mv1v2.centerIndex], level);
 
 		this.recurse(level + 1, v0i, mv0v1.centerIndex, mv2v0.centerIndex);
 		this.recurse(level + 1, mv0v1.centerIndex, v1i, mv1v2.centerIndex);
@@ -484,34 +488,42 @@ export default class Myriahedral {
 
 	splitEdge(e: Edge) {
 
-		const v0v1 = Vertex.middle(e.vertex0, e.vertex1);
+		const v0v1 = Vertex.middle(this.vertex[e.vertex0], this.vertex[e.vertex1]);
 		this.insertVertex(v0v1);
 
 		e.centerIndex = v0v1.index;
 
-		if (!this.getEdgeByVertexIndices(e.v0, v0v1.index)) {
-			const e0 = new Edge(e.vertex0, v0v1);
-			this.insertEdge(e0, 0);
+		if (!this.getEdgeByVertexIndices(e.vertex0, v0v1.index)) {
+			const e0 = this.insertEdge(this.vertex[e.vertex0], v0v1, 0);
 			e0.w0 = e.w0;
 			e0.w1 = e.wc;
 			e0.wc = (e.w0 + e.wc) / 2;
+		} else {
+			console.log('ai');
 		}
 
-		if (!this.getEdgeByVertexIndices(v0v1.index, e.v1)) {
-			const e1 = new Edge(v0v1, e.vertex1);
-			this.insertEdge(e1, 0);
+		if (!this.getEdgeByVertexIndices(v0v1.index, e.vertex1)) {
+			const e1 = this.insertEdge(v0v1, this.vertex[e.vertex1], 0);
 			e1.w0 = e.wc;
 			e1.w1 = e.w1;
 			e1.wc = (e.wc + e.w1) / 2;
+		} else {
+			console.log('ai');
 		}
+
 	}
 
 	private buildFoldingTree() {
 		this.foldsMST.forEach( (fe) => {
 			if (fe.parent) {
 				fe.parent.children.push( fe );
+
+				if (fe.fromFaceIndex!==fe.parent.toFaceIndex) {
+					fe.swap();
+				}
+
 			} else {
-				console.log(`no parent`);
+				console.log(`no parent - MST root.`);
 			}
 		});
 	}
@@ -522,89 +534,225 @@ export default class Myriahedral {
 		});
 	}
 
-	unfold(angleInDegs: number) {
+	private reTriangulateGeometry() {
+
+		const newVertices: Vertex[] = [];
+		const newIndex: number[] = [];
+
+		const faces = new Map<number, Edge[]>();	// faceId, vertices
+
+		const process = (edge: Edge, f0: number) => {
+			let ar = faces.get(f0);
+			if (ar === undefined) {
+				ar = [];
+				faces.set(f0, ar);
+			}
+
+			ar.push(edge);
+		}
+
+		const addCut = (c: Edge) => {
+			process(c, c.faceIndices[0]);
+			process(c, c.faceIndices[1]);
+		}
+
+		const addFold = (fold: FacesEdge) => {
+			process(fold.edge, fold.fromFaceIndex);
+			process(fold.edge, fold.toFaceIndex);
+		}
+
+		this.foldsMST.forEach( fold => {
+			addFold(fold);
+		});
+
+		this.cuts.forEach( c => {
+			addCut(c);
+		});
+
+		// check all tris have been processed.
+		let c = 0;
+		faces.forEach( f => {
+			if (f.length!==3) {
+				c++;
+			}
+		});
+		if (c!==0) {
+			throw new Error(`incomplete faces: ${c}`);
+		}
+
+		const faceRemap = new Map<number, number>();
+		this.facesInfo = new Map<number, FaceInfo>();
+
+		// build new geometry.
+		// number of faces is constant.
+		faces.forEach( (edges,faceIndex) => {
+
+			const vertices = [this.index[faceIndex*3], this.index[faceIndex*3+1], this.index[faceIndex*3+2]];
+
+			if (vertices[0]===vertices[1] || vertices[0]===vertices[2] || vertices[1]===vertices[2]) {
+				console.error('same vertex more than once ??');
+			}
+
+			const nv0 = this.vertex[vertices[0]].clone();
+			nv0.index = newVertices.length;
+
+			const nv1 = this.vertex[vertices[1]].clone();
+			nv1.index = newVertices.length+1;
+
+			const nv2 = this.vertex[vertices[2]].clone();
+			nv2.index = newVertices.length+2;
+
+			newVertices.push( nv0, nv1, nv2 );
+
+			const i = newIndex.length;
+			newIndex.push(i, i+1, i+2);
+
+			faceRemap.set(faceIndex, i/3);
+
+			this.facesInfo.set(i/3, new FaceInfo(
+				faceIndex,
+				edges,
+				[nv0, nv1, nv2],
+				vertices,
+			));
+		});
+
+		this.edges.forEach( e => {
+			e.faceIndices[0] = faceRemap.get(e.faceIndices[0]);
+			e.faceIndices[1] = faceRemap.get(e.faceIndices[1]);
+		});
+
+		this.vertex = newVertices;
+		this.index = newIndex;
+	}
+
+	private unfold(cut?: boolean) {
 
 		this.normalizeGeometry();
 		this.buildFoldingTree();
 
-		this.preCutVertexCount = this.vertex.length;
+		if (cut) {
+			this.reTriangulateGeometry();
 
-		this.cutGeometry();
+			// recursively unfold faces.
+			// on an sphere, all folds have a prent (cyclic).
+			// use an arbitrary one as parent: has just one child
+			const start = this.foldsMST.filter( e => {
+				return e.parent===null
+			})[0];
 
-return;
-
-		// recursively unfold faces.
-		// on an sphere, all folds have a prent (cyclic).
-		// use an arbitrary one as parent: has just one child
-		const start = this.foldsMST[0];
-
-		const newVertex: Vertex[] = [
-			this.vertex[this.foldsMST[0].v0*3 ].clone(),
-			this.vertex[this.foldsMST[0].v0*3 +1 ].clone(),
-			this.vertex[this.foldsMST[0].v0*3 +2 ].clone(),
-		];
-
-		this.unfoldImpl(start, start, angleInDegs, newVertex);
-
-		console.log(`unfolded ${this.cc}/${this.foldsMST.length}/${this.folds.length}`);
-
-		this.vertex = newVertex;
-		this.index = [];
-		for(let i = 0; i<newVertex.length; i++) {
-			this.index.push(i);
+			this.unfoldImpl(start, start);
+			console.log(`affected face nodes ${this.ccc}`);
 		}
 	}
 
-	preCutVertexCount = 0;
-	cc = 0;
-	private unfoldImpl(root: FacesEdge, node: FacesEdge, angleInRads: number, newVertex: Vertex[]) {
+	ccc= 0;
+	private unfoldImpl(root: FacesEdge, node: FacesEdge) {
 
-		this.cc++;
+		this.ccc++;
+		this.unfoldNodeRec(root, node);
+		node.children.forEach( c => {
+			if (c!==root) {
+				this.unfoldImpl(root, c)
+			}
+		} );
+	}
 
-		const f0N = this.vertex[node.v0e];
-		const f1N = this.vertex[node.v1e];
+	private normalForFaceIndex(i: number) {
+		const x0 = this.vertex[this.index[i*3+1]].x - this.vertex[this.index[i*3]].x;
+		const y0 = this.vertex[this.index[i*3+1]].y - this.vertex[this.index[i*3]].y;
+		const z0 = this.vertex[this.index[i*3+1]].z - this.vertex[this.index[i*3]].z;
 
-		const diffAngle = .1; // Math.min(Math.acos( f0N.dot(f1N) ), 0);
+		const x1 = this.vertex[this.index[i*3+2]].x - this.vertex[this.index[i*3]].x;
+		const y1 = this.vertex[this.index[i*3+2]].y - this.vertex[this.index[i*3]].y;
+		const z1 = this.vertex[this.index[i*3+2]].z - this.vertex[this.index[i*3]].z;
 
-		// rotate in f1, the vertex not in the vertex-edge described in FacesEdge
+		const x = y0*z1 - z0*y1;
+		const y = z0*x1 - x0*z1;
+		const z = x0*y1 - y0*x1;
 
-		const vertex0InFace1 = this.index[ node.v0*3 ];
-		const vertex1InFace1 = this.index[ node.v0*3 + 1 ];
-		const vertex2InFace1 = this.index[ node.v0*3 + 2 ];
+		const l = Math.sqrt(x*x + y*y + z*z);
 
-		const vertexToRotate = vertex0InFace1 !== node.v0 && vertex0InFace1 !== node.v1 ?
-			vertex0InFace1 :
-			(vertex1InFace1 !== node.v0 && vertex1InFace1 !== node.v1 ?
-				vertex1InFace1 :
-				vertex2InFace1);
+		return [x/l,y/l,z/l];
+	}
 
-		const toRotate = this.vertex[vertexToRotate];
+	private unfoldNodeRec(root: FacesEdge, node: FacesEdge ) {
 
+		// for this pass, normals are just vertex points.
+		const N0 = this.normalForFaceIndex(node.fromFaceIndex);
+		const N1 = this.normalForFaceIndex(node.toFaceIndex);
+		let diffAngle = - .1 * Math.acos(N0[0]*N1[0] + N0[1]*N1[1] + N0[2]*N1[2]);
 
-		const v = Vector3.createFromCoords(toRotate.x, toRotate.y, toRotate.z);
-		const knn = Vector3.createFromCoords(f1N.x - f0N.x, f1N.y - f0N.y, f1N.z - f0N.z);
+		// find common faces edge.
+		// get the two shared points.
+		const fi0 = this.facesInfo.get(node.fromFaceIndex);
+		const fi1 = this.facesInfo.get(node.toFaceIndex);
+
+		const rotationEdgeVerticesIndices = fi0.prevVerticesIndices.filter( v => {
+			return fi1.prevVerticesIndices.indexOf(v)!==-1;		// valores comunes
+		});
+
+		const rotationEdgeVertices = rotationEdgeVerticesIndices.map( v => {
+			return fi0.vertices[fi0.prevVerticesIndices.indexOf(v)];
+		});
+
+		const processed = new Set<number>();
+		// processed.add( node.fromFaceIndex );
+
+		const knn = Vector3.createFromCoords(
+			rotationEdgeVertices[1].x - rotationEdgeVertices[0].x,
+			rotationEdgeVertices[1].y - rotationEdgeVertices[0].y,
+			rotationEdgeVertices[1].z - rotationEdgeVertices[0].z);
+
 		const e = Vector3.normalize( Vector3.create(), knn );
-		const ev = Vector3.cross( Vector3.create(), e, v);
-		const dotev = Vector3.dot(e,v) * (1-Math.cos(diffAngle));
+
+		this.rotatePointRec(root, node, rotationEdgeVertices[0], e, diffAngle, processed);
+	}
+
+	private rotatePointRec(root: FacesEdge, n: FacesEdge, vref: Vertex, e: Float32Array, diffAngle: number, processed: Set<number>) {
+
+		const rodrigues = (i: number) => {
+			if (!processed.has(i)) {
+				processed.add(i);
+				this.facesInfo.get(i).vertices.forEach(v => {
+					const vv = Vector3.sub(Vector3.create(),
+						Vector3.createFromCoords(v.x, v.y, v.z),
+						Vector3.createFromCoords(vref.x, vref.y, vref.z),
+						);
+					this.rodriguesRotatePoint(vv, e, diffAngle);
+
+					v.x = vv[0] + vref.x;
+					v.y = vv[1] + vref.y;
+					v.z = vv[2] + vref.z;
+				});
+			}
+
+		}
+
+		rodrigues(n.toFaceIndex);
+		// rodrigues(n.fromFaceIndex);
+
+		n.children.forEach( c => this.rotatePointRec(root, c, vref, e, diffAngle, processed));
+	}
+
+	private rodriguesRotatePoint(v: Float32Array, e: Float32Array, diffAngle: number) {
+
+		// const v = Vector3.createFromCoords(vv.x, vv.y, vv.z);
+		const ev = Vector3.cross(Vector3.create(), e, v);
+		const dotev = Vector3.dot(e, v) * (1 - Math.cos(diffAngle));
 
 		const vrot =
-			Vector3.add( Vector3.create(),
-				Vector3.add( Vector3.create(),
+			Vector3.add(Vector3.create(),
+				Vector3.add(Vector3.create(),
 					Vector3.mul(Vector3.create(), v, Math.cos(diffAngle)),
-					Vector3.mul( Vector3.create(), ev, Math.sin(diffAngle))
+					Vector3.mul(Vector3.create(), ev, Math.sin(diffAngle))
 				),
-				Vector3.mul( Vector3.create(), e, dotev)
+				Vector3.mul(Vector3.create(), e, dotev)
 			);
 
-		newVertex.push( f0N.clone() );
-		newVertex.push( f1N.clone() );
-		newVertex.push( new Vertex(vrot[0], vrot[1], vrot[2]) );
-
-		node.children.forEach(c => {
-			if (c!==root) {
-				this.unfoldImpl(root, c, angleInRads, newVertex);
-			}
-		});
+		v[0] = vrot[0];
+		v[1] = vrot[1];
+		v[2] = vrot[2];
 
 	}
 }

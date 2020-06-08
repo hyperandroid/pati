@@ -14,6 +14,7 @@ import Material from "./Material";
 import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
+import Myriahedral, {GeometryInfoIndexed} from "./geometry/Myriahedral";
 
 const N = 64;
 let pos = 0;
@@ -100,16 +101,22 @@ export default class Engine {
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 16), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-		this.mesh["earth"] = Mesh.tessellateSphereRec(this, {
-				material: Material.Texture(
-					this.getTexture("jupiter"),
-					this.getTexture("specular"),
-					2.2,
-					32
-				),
-				subdivisions: 5,
-				cullDisabled: true,
-			}).setScale(20);
+
+
+		const m = new Myriahedral(6, true);
+		const data = m.getMeshData();
+		this.buildFoldsCutsLines(data, false);
+		const earth = new Mesh().from(this, {
+			...data,
+			material: Material.Texture(
+							this.getTexture("earth"),
+							this.getTexture("specular"),
+							1.2,
+							32
+						),
+			cullDisabled: true,
+		}, 1);
+		this.mesh["earth"] = earth.setScale(20);
 
 		// this.mesh["moon"] = Mesh.tessellateSphereRec(this, {
 		// 	material: Material.Texture(
@@ -155,6 +162,130 @@ export default class Engine {
 
 			console.log(pos);
 		});
+	}
+
+	private buildFoldsCutsLines(data: GeometryInfoIndexed, showCuts: boolean) {
+
+		const gl = this.gl;
+
+		/*****/
+		const centers: number[] = [];
+		for (let i = 0; i < data.index.length; i += 3) {
+
+			const v0x = data.vertices[data.index[i] * 3];
+			const v0y = data.vertices[data.index[i] * 3 + 1];
+			const v0z = data.vertices[data.index[i] * 3 + 2];
+
+			const v1x = data.vertices[data.index[i + 1] * 3];
+			const v1y = data.vertices[data.index[i + 1] * 3 + 1];
+			const v1z = data.vertices[data.index[i + 1] * 3 + 2];
+
+			const v2x = data.vertices[data.index[i + 2] * 3];
+			const v2y = data.vertices[data.index[i + 2] * 3 + 1];
+			const v2z = data.vertices[data.index[i + 2] * 3 + 2];
+
+			centers.push((v0x + v1x + v2x) / 3);
+			centers.push((v0y + v1y + v2y) / 3);
+			centers.push((v0z + v1z + v2z) / 3);
+		}
+		const indices: number[] = [];
+		data.folds.forEach((fold, i) => {
+			indices.push(fold.f0);
+			indices.push(fold.f1);
+		});
+
+		const mc = Material.Color(new Float32Array([1, 0, 1, 1]));
+		mc.renderMode = gl.POINTS;
+		this.mesh["folds"] = new Mesh().from(this, {
+			material: mc,
+			index: new Uint16Array(indices),
+			vertices: new Float32Array(centers),
+			cullDisabled: true,
+			uv: null,
+			normals: null,
+		}, 1).setScale(20.5);
+
+		const mc2 = Material.Color(new Float32Array([1, 0, 1, 1]));
+		mc2.renderMode = gl.LINES;
+		this.mesh["folds2"] = new Mesh().from(this, {
+			material: mc2,
+			index: new Uint16Array(indices),
+			vertices: new Float32Array(centers),
+			cullDisabled: true,
+			uv: null,
+			normals: null,
+		}, 1).setScale(20.5);
+
+
+		/// cuts
+		const indicescut: number[] = [];
+		data.cuts.forEach((cut) => {
+			indicescut.push(cut.vertex0);
+			indicescut.push(cut.vertex1);
+		});
+
+		if (showCuts) {
+			const mc3 = Material.Color(new Float32Array([0, 1, 1, 1]));
+			mc3.renderMode = gl.LINES;
+			this.mesh["cuts"] = new Mesh().from(this, {
+				material: mc3,
+				index: new Uint16Array(indicescut),
+				vertices: new Float32Array(data.vertices),
+				cullDisabled: true,
+				uv: null,
+				normals: null,
+			}, 1).setScale(20.5);
+
+			const mc4 = Material.Color(new Float32Array([0, 1, 1, 1]));
+			mc4.renderMode = gl.POINTS;
+			this.mesh["cuts2"] = new Mesh().from(this, {
+				material: mc4,
+				index: new Uint16Array(indicescut),
+				vertices: new Float32Array(data.vertices),
+				cullDisabled: true,
+				uv: null,
+				normals: null,
+			}, 1).setScale(20.5);
+		}
+		/*****/
+
+		/// normals
+		const normals: number[] = [];
+		const indicesnormals: number[] = [];
+		let indexnormals = 0;
+		for (let i = 0; i < data.index.length; i += 3) {
+			const x0 = data.vertices[data.index[i + 1] * 3] -     data.vertices[data.index[i ] * 3];
+			const y0 = data.vertices[data.index[i + 1] * 3 + 1] - data.vertices[data.index[i ] * 3 + 1];
+			const z0 = data.vertices[data.index[i + 1] * 3 + 2] - data.vertices[data.index[i ] * 3 + 2];
+
+			const x1 = data.vertices[data.index[i + 2] * 3] -     data.vertices[data.index[i ] * 3];
+			const y1 = data.vertices[data.index[i + 2] * 3 + 1] - data.vertices[data.index[i ] * 3 + 1];
+			const z1 = data.vertices[data.index[i + 2] * 3 + 2] - data.vertices[data.index[i ] * 3 + 2];
+
+			const x = y0 * z1 - z0 * y1;
+			const y = z0 * x1 - x0 * z1;
+			const z = x0 * y1 - y0 * x1;
+
+			let l = Math.sqrt(x * x + y * y + z * z);
+			normals.push(x / l, y / l, z / l);
+			const f = 1.1;
+			normals.push(x / l * f, y / l * f, z / l * f);
+
+			indicesnormals.push(indexnormals++);
+			indicesnormals.push(indexnormals++);
+		}
+
+		const matnormals = Material.Color(new Float32Array([1, 1, 1, 1]));
+		matnormals.renderMode = gl.LINES;
+		this.mesh["normals"] = new Mesh().from(this, {
+			material: matnormals,
+			index: new Uint16Array(indicesnormals),
+			vertices: new Float32Array(normals),
+			cullDisabled: true,
+			uv: null,
+			normals: null,
+		}, 1).setScale(20);
+
 	}
 
 	resize(w: number, h: number, force?: boolean) {
@@ -247,10 +378,10 @@ export default class Engine {
 		// moon.render(this);
 
 		const light = this.light['point'] as PointLight;
-		light.setPosition(
-			25*Math.cos((this.time%15000)/15000*2*Math.PI),
-			5,
-			25*Math.sin((this.time%15000)/15000*2*Math.PI));
+		// light.setPosition(
+		// 	25*Math.cos((this.time%15000)/15000*2*Math.PI),
+		// 	5,
+		// 	25*Math.sin((this.time%15000)/15000*2*Math.PI));
 
 		(this.mesh["lightprobe"] as Mesh).setPositionV(light.getPosition());
 		(this.mesh["lightprobe"] as Mesh).setScale(.3);
@@ -258,6 +389,12 @@ export default class Engine {
 		const lp = this.mesh["lightprobe"];
 		lp.render(this);
 		this.mesh["skybox"].render(this);
+
+		this.mesh["folds"]?.render(this);
+		this.mesh["folds2"]?.render(this);
+		// this.mesh["cuts"]?.render(this);
+		// this.mesh["cuts2"]?.render(this);
+		// this.mesh["normals"]?.render(this);
 
 		// const p = light.getPosition();
 		// this.currentCamera.lookAt(p[0], -p[1], p[2]);

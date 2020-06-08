@@ -35,6 +35,8 @@ export default class Mesh implements RenderComponent {
 	transformDirty = true;
 	transform = Matrix4.create();
 
+	renderMode: number;
+
 	constructor() {
 
 	}
@@ -100,7 +102,7 @@ export default class Mesh implements RenderComponent {
 				}, material);
 				break;
 			case MaterialType.COLOR:
-				this.shaderInfo = e.getShader("null").createVAO(gl, {vertex: vertices}, material);
+				this.shaderInfo = e.getShader("null").createVAO(gl, {vertex: vertices, index}, material);
 				break;
 			default:
 				throw new Error(`Unknown material type. ${material}`);

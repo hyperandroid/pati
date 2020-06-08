@@ -24,6 +24,8 @@ export default class NullShader extends Shader {
 
 				void main() {
 					gl_Position = uProjection * uModelView * uModelTransform * vec4(aPosition, 1.0);
+					gl_PointSize = 5.0;
+				
 				}
 			`,
 			fragment: `#version 300 es
@@ -58,9 +60,9 @@ export default class NullShader extends Shader {
 		gl.bindVertexArray(info.vao);
 
 		if (info.indexBuffer !== null) {
-			gl.drawElements(gl.TRIANGLES, info.vertexCount, gl.UNSIGNED_SHORT, 0);
+			gl.drawElements(info.renderMode, info.vertexCount, gl.UNSIGNED_SHORT, 0);
 		} else {
-			gl.drawArrays(gl.TRIANGLES, 0, info.vertexCount);
+			gl.drawArrays(info.renderMode, 0, info.vertexCount);
 		}
 
 		gl.bindVertexArray(null);
@@ -99,6 +101,7 @@ export default class NullShader extends Shader {
 			instanceBuffer: null,
 			indexBuffer: glBufferIndex,
 			uvBuffer: null,
+			renderMode: material.renderMode ?? this._gl.TRIANGLES,
 		}
 	}
 }

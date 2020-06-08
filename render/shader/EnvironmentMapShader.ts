@@ -140,6 +140,7 @@ export class EnvironmentMapShader extends Shader {
 			indexBuffer: glBufferIndex,
 			vertexCount,
 			uvBuffer: null,
+			renderMode: material.renderMode ?? this._gl.TRIANGLES,
 		};
 	}
 }

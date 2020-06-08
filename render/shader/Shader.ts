@@ -23,6 +23,7 @@ export interface ShaderVAOInfo {
 	vertexCount: number;
 	instanceCount: number;
 	backFaceDisabled?: boolean;
+	renderMode: number;
 }
 
 export interface VAOGeometryInfo {
