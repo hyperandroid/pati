@@ -103,7 +103,7 @@ export default class Engine {
 
 
 
-		const m = new Myriahedral(6, true);
+		const m = new Myriahedral(6);
 		const data = m.getMeshData();
 		this.buildFoldsCutsLines(data, false);
 		const earth = new Mesh().from(this, {
@@ -390,8 +390,8 @@ export default class Engine {
 		lp.render(this);
 		this.mesh["skybox"].render(this);
 
-		this.mesh["folds"]?.render(this);
-		this.mesh["folds2"]?.render(this);
+		// this.mesh["folds"]?.render(this);
+		// this.mesh["folds2"]?.render(this);
 		// this.mesh["cuts"]?.render(this);
 		// this.mesh["cuts2"]?.render(this);
 		// this.mesh["normals"]?.render(this);

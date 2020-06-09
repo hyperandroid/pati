@@ -1,6 +1,6 @@
 import Myriahedral, {FacesEdge} from "./render/geometry/Myriahedral";
 
-const m = new Myriahedral(6, false);
+const m = new Myriahedral(6);
 const data = m.getMeshData();
 
 const faceCenter: number[] = [];
@@ -37,10 +37,10 @@ const polylineFolds: number[] = [];
 
 
 function rec( edge: FacesEdge) {
+	edge.children.forEach( c=> rec(c));
+
 	polylineFolds.push(foldsXY[edge.fromFaceIndex * 2], foldsXY[edge.fromFaceIndex * 2 + 1]);
 	polylineFolds.push(foldsXY[edge.toFaceIndex * 2], foldsXY[edge.toFaceIndex * 2 + 1]);
-
-	edge.children.forEach( c=> rec(c));
 }
 rec(data.foldsMST.filter( f => { return f.parent===null })[0]);
 
@@ -98,8 +98,8 @@ let N = 0;
 function run() {
 	ctx.strokeStyle = 'black';
 	ctx.clearRect(0,0,c.width,c.height);
-	// render(polylineFolds, polylineFolds.length);
-	render(polylineFolds, N%polylineFolds.length);
+	render(polylineFolds, polylineFolds.length);
+	// render(polylineFolds, N%polylineFolds.length);
 	ctx.strokeStyle = 'red';
 	// render(polylineCuts, polylineCuts.length);
 	// render(polylineCuts, N%polylineCuts.length);
@@ -111,5 +111,5 @@ requestAnimationFrame(run);
 
 window.addEventListener("mousedown", (e) => {
 	N+=4;
-	run();
+	// run();
 });
