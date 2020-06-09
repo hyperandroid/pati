@@ -160,15 +160,15 @@ export default class Quaternion {
 	 * rotate point v by quaternion q.
 	 * store the result a a quaternion in out.
 	 */
-	static rotate(out: Float32Array, q: Float32Array, v: Float32Array): Float32Array {
+	static rotate(q: Float32Array, v: Float32Array): Float32Array {
 
 		return Quaternion.mul(
 			_q0,
 			Quaternion.mul(
 				_q0,
 				q,
-				Quaternion.fromPoint(Quaternion.create(), v)),
-			Quaternion.conjugate(Quaternion.create(), q)
+				Quaternion.fromPoint(_q1, v)),
+			Quaternion.conjugate(_q2, q)
 		);
 	}
 
@@ -265,12 +265,11 @@ export default class Quaternion {
 		const q1 = Quaternion.createFromAxisAndAngle(
 			Vector3.createFromCoords(0.0, 0.0, 1.0), Math.PI / 4);
 
-		const rp0 = Quaternion.rotate(Quaternion.create(), q0, p0);
+		const rp0 = Quaternion.rotate(q0, p0);
 
 		console.log(
 			Quaternion.toJSON(
 				Quaternion.rotate(
-					Quaternion.create(),
 					q1,
 					rp0)));
 
@@ -278,7 +277,6 @@ export default class Quaternion {
 		console.log(
 			Quaternion.toJSON(
 				Quaternion.rotate(
-					Quaternion.create(),
 					q2,
 					p0
 				)
@@ -287,3 +285,5 @@ export default class Quaternion {
 }
 
 const _q0 = Quaternion.create();
+const _q1 = Quaternion.create();
+const _q2 = Quaternion.create();

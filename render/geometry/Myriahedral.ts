@@ -114,21 +114,65 @@ export class FacesEdge {
 	}
 }
 
-
 export interface MSTNode {
 	f0: number;
 	f1: number;
 }
 
-const tetrahedronVertices = [
-	[0.0, -1.0, 2.0],
-	[1.73205081, -1.0, -1.0],
-	[-1.73205081, -1.0, -1.0],
-	[0.0, 2.0, 0.0],
-]
-const tetrahedronEdges = [
-	[0, 1], [1, 2], [0, 2], [0, 3], [2, 3], [1, 3]
-];
+const tetrahedron = {
+
+	vertices: [
+		[0.0, -1.0, 2.0],
+		[1.73205081, -1.0, -1.0],
+		[-1.73205081, -1.0, -1.0],
+		[0.0, 2.0, 0.0],
+	],
+	//edges: [[0, 1], [1, 2], [0, 2], [0, 3], [2, 3], [1, 3]],
+	edges: [[2, 0], [0, 1], [3, 0], [1, 2], [2, 3], [3, 1]],
+
+	faces: [
+		[0, 2, 1],
+		[0, 3, 2],
+		[0, 1, 3],
+		[1, 2, 3],
+	]
+};
+
+
+type VertexType = number[];
+type FaceType = number[];
+type EdgeType = number[];
+
+const cube = {
+	vertices: [
+		[0.5, -0.5, -0.5],
+		[-0.5, -0.5, -0.5],
+		[-0.5, -0.5, 0.5],
+		[0.5, -0.5, 0.5],
+		[0.5, 0.5, -0.5],
+		[-0.5, 0.5, -0.5],
+		[-0.5, 0.5, 0.5],
+		[0.5, 0.5, 0.5],
+	],
+
+	faces: [
+			[2, 1, 0], [3, 2, 0],
+			[3, 0, 4], [7, 3, 4],
+			[0, 1, 5], [4, 0, 5],
+			[1, 2, 6], [5, 1, 6],
+			[2, 3, 7], [6, 2, 7],
+			[4, 5, 6], [7, 4, 6],
+		],
+
+	edges: [
+		[2,0],[3,0],[3,4],
+		[0,1],[4,0],[0,5],
+		[1,2],[5,1],[1,6],
+		[2,3],[3,7],[6,2],
+		[2,7],[4,5],[5,6],
+		[7,4],[4,6],[6,7]
+	]
+}
 
 class MM<T> {
 
@@ -203,7 +247,18 @@ interface FaceInfo {
 	edges: Edge[];
 	vertices: Vertex[];
 	prevVerticesIndices: number[];
+	normal: number[];
 }
+
+interface Geometry {
+	vertices: VertexType[];	// [ [0,1,2] ]
+	edges: EdgeType[];
+	faces: FaceType[];
+}
+
+const knn = Vector3.create();
+const knnP0 = Vector3.create();
+const q0 = Quaternion.create();
 
 export default class Myriahedral {
 
@@ -224,25 +279,16 @@ export default class Myriahedral {
 
 		this.subdivisions = subdivisions;
 
-		tetrahedronVertices.forEach(v => {
-			this.insertVertex(new Vertex(v[0], v[1], v[2]));
-		})
-
-		tetrahedronEdges.forEach(e => {
-			this.insertEdge(this.vertex[e[0]], this.vertex[e[1]], 0);
-		});
-
-		this.recurse(1, 0, 2, 1);
-		this.recurse(1, 0, 3, 2);
-		this.recurse(1, 0, 1, 3);
-		this.recurse(1, 1, 2, 3);
+		this.buildMyriahedron(tetrahedron);
 
 		// get only actual edges, not the ones used to subdivide.
 		this.edges = this.edges.clone(v => {
 			return v.centerIndex === -1
 		});
 
+		let tMST = Date.now();
 		this.foldsMST = this.calcMST(this.transformVertEdgesToFaceEdges());
+		console.log(`MST calc time ${Date.now()-tMST}ms.`);
 
 		// FOLDS
 
@@ -275,6 +321,49 @@ export default class Myriahedral {
 			}
 		});
 
+	}
+
+	static edgesFromIndices(faces: FaceType[]): EdgeType[] {
+
+		const edges: EdgeType[] = [];
+
+		faces.forEach(f => {
+			for (let i = 0; i < f.length; i++) {
+				edges.push([
+					f[i], f[(i + 1) % f.length],
+				])
+			}
+		});
+
+		// remove duplicates
+		for (let i = 0; i < edges.length - 1; i++) {
+			const edge = edges[i];
+			for (let j = i + 1; j < edges.length; j++) {
+				const aedge = edges[j];
+				if (edge !== null && ((edge[0] === aedge[0] && edge[1] === aedge[1]) || (edge[1] === aedge[0] && edge[0] === aedge[1]))) {
+					edges[i] = null;
+					break;
+				}
+			}
+		}
+
+		return edges.filter(e => e !== null);
+	}
+
+
+	private buildMyriahedron(geometry: Geometry) {
+
+		geometry.vertices.forEach(v => {
+			this.insertVertex(new Vertex(v[0], v[1], v[2]));
+		})
+
+		geometry.edges.forEach(e => {
+			this.insertEdge(this.vertex[e[0]], this.vertex[e[1]], 0);
+		});
+
+		geometry.faces.forEach( f => this.recurse(1, f[0], f[1], f[2]));
+
+		this.normalizeGeometry();
 	}
 
 	calcMST(faceEdges: FacesEdge[]): FacesEdge[] {
@@ -603,11 +692,14 @@ export default class Myriahedral {
 
 			faceRemap.set(faceIndex, i / 3);
 
+			const verticesO = [nv0, nv1, nv2]
+
 			this.facesInfo.set(i / 3, {
 				id: faceIndex,
 				edges,
-				vertices: [nv0, nv1, nv2],
+				vertices: verticesO,
 				prevVerticesIndices: vertices,
+				normal: this.normalForVertices(verticesO),
 			});
 		});
 
@@ -622,41 +714,26 @@ export default class Myriahedral {
 
 	private unfold() {
 
-		this.normalizeGeometry();
 		this.buildFoldingTree();
 		this.reTriangulateGeometry();
 		this.uv = this.calculateUV();
 
-		// recursively unfold faces.
-		// on an sphere, all folds have a prent (cyclic).
-		// use an arbitrary one as parent: has just one child
-		// const starts = this.foldsMST.filter( e => {
-		// 	return e.parent===null
-		// }).sort((a,b) => {
-		// 	return a.wc < b.wc ? 1 : (a.wc > b.wc ? -1 : 0);
-		// });
-		//
-		// if (starts.length > 1 ) {
-		// 	for(let i = 1; i<starts.length; i++) {
-		// 		starts[i].parent = starts[0];
-		// 	}
-		// }
-		//
-		// this.unfoldImpl(starts[0]);
-
+		let t= Date.now();
 		this.foldsMST.filter(e => {
 			return e.parent === null
 		}).forEach(f => this.unfoldImpl(f));
+		t= Date.now() - t;
+		console.log(`unfold took ${t}ms.`);
 	}
 
-	private normalForFaceIndex(i: number) {
-		const x0 = this.vertex[this.index[i * 3 + 1]].x - this.vertex[this.index[i * 3]].x;
-		const y0 = this.vertex[this.index[i * 3 + 1]].y - this.vertex[this.index[i * 3]].y;
-		const z0 = this.vertex[this.index[i * 3 + 1]].z - this.vertex[this.index[i * 3]].z;
+	private normalForVertices(v: Vertex[]): number[] {
+		const x0 = v[1].x - v[0].x;
+		const y0 = v[1].y - v[0].y;
+		const z0 = v[1].z - v[0].z;
 
-		const x1 = this.vertex[this.index[i * 3 + 2]].x - this.vertex[this.index[i * 3]].x;
-		const y1 = this.vertex[this.index[i * 3 + 2]].y - this.vertex[this.index[i * 3]].y;
-		const z1 = this.vertex[this.index[i * 3 + 2]].z - this.vertex[this.index[i * 3]].z;
+		const x1 = v[2].x - v[0].x;
+		const y1 = v[2].y - v[0].y;
+		const z1 = v[2].z - v[0].z;
 
 		const x = y0 * z1 - z0 * y1;
 		const y = z0 * x1 - x0 * z1;
@@ -665,6 +742,27 @@ export default class Myriahedral {
 		const l = Math.sqrt(x * x + y * y + z * z);
 
 		return [x / l, y / l, z / l];
+	}
+
+	private normalForFaceIndex(i: number) {
+
+		return this.normalForVertices(this.facesInfo.get(i).vertices);
+
+		// const x0 = this.vertex[this.index[i * 3 + 1]].x - this.vertex[this.index[i * 3]].x;
+		// const y0 = this.vertex[this.index[i * 3 + 1]].y - this.vertex[this.index[i * 3]].y;
+		// const z0 = this.vertex[this.index[i * 3 + 1]].z - this.vertex[this.index[i * 3]].z;
+		//
+		// const x1 = this.vertex[this.index[i * 3 + 2]].x - this.vertex[this.index[i * 3]].x;
+		// const y1 = this.vertex[this.index[i * 3 + 2]].y - this.vertex[this.index[i * 3]].y;
+		// const z1 = this.vertex[this.index[i * 3 + 2]].z - this.vertex[this.index[i * 3]].z;
+		//
+		// const x = y0 * z1 - z0 * y1;
+		// const y = z0 * x1 - x0 * z1;
+		// const z = x0 * y1 - y0 * x1;
+		//
+		// const l = Math.sqrt(x * x + y * y + z * z);
+		//
+		// return [x / l, y / l, z / l];
 	}
 
 	private unfoldImpl(node: FacesEdge) {
@@ -691,16 +789,15 @@ export default class Myriahedral {
 
 	private unfoldNodeRec(node: FacesEdge) {
 
-		// for this pass, normals are just vertex points.
-		const N0 = this.normalForFaceIndex(node.fromFaceIndex);
-		const N1 = this.normalForFaceIndex(node.toFaceIndex);
+		const fi0 = this.facesInfo.get(node.fromFaceIndex);
+		const fi1 = this.facesInfo.get(node.toFaceIndex);
+
+		const N0 = fi0.normal;
+		const N1 = fi1.normal;
 		let diffAngle = -Math.acos(N0[0] * N1[0] + N0[1] * N1[1] + N0[2] * N1[2]);
 
 		// find common faces edge.
 		// get the two shared points.
-		const fi0 = this.facesInfo.get(node.fromFaceIndex);
-		const fi1 = this.facesInfo.get(node.toFaceIndex);
-
 		const rotationEdgeVerticesIndices = fi0.prevVerticesIndices.filter(v => {
 			return fi1.prevVerticesIndices.indexOf(v) !== -1;		// valores comunes
 		});
@@ -715,75 +812,34 @@ export default class Myriahedral {
 			diffAngle *= -1;
 		}
 
-		const knn = Vector3.createFromCoords(
-			rotationEdgeVertices[1].x - rotationEdgeVertices[0].x,
-			rotationEdgeVertices[1].y - rotationEdgeVertices[0].y,
-			rotationEdgeVertices[1].z - rotationEdgeVertices[0].z);
+		knn[0]= rotationEdgeVertices[1].x - rotationEdgeVertices[0].x;
+		knn[1]= rotationEdgeVertices[1].y - rotationEdgeVertices[0].y;
+		knn[2]= rotationEdgeVertices[1].z - rotationEdgeVertices[0].z;
+		const e = Vector3.normalize(knn, knn);
 
-		const e = Vector3.normalize(Vector3.create(), knn);
+		Quaternion.fromAxisAndAngle(q0, e, diffAngle);
+		this.rotatePointRecQuaterion(node, rotationEdgeVertices[0], q0);
 
-		this.rotatePointRecQuaterion(node, rotationEdgeVertices[0], e, diffAngle);
-		// this.rotatePointRecRodriges(node, rotationEdgeVertices[0], e, diffAngle);
-
-		this.coplanar(node.fromFaceIndex, node.toFaceIndex);
+		// this.coplanar(node.fromFaceIndex, node.toFaceIndex);
 	}
 
-	private rotatePointRecQuaterion(n: FacesEdge, vref: Vertex, e: Float32Array, diffAngle: number) {
+	private rotatePointRecQuaterion(n: FacesEdge, vref: Vertex, q0: Float32Array) {
 
 		n.children.forEach(c => {
-			this.rotatePointRecQuaterion(c, vref, e, diffAngle);
+			this.rotatePointRecQuaterion(c, vref, q0);
 		});
 
 		this.facesInfo.get(n.toFaceIndex).vertices.forEach(v => {
-			const p0 = Vector3.sub(
-				Vector3.create(),
-				Vector3.createFromCoords(v.x, v.y, v.z),
-				Vector3.createFromCoords(vref.x, vref.y, vref.z),
-			);
 
-			const q0 = Quaternion.createFromAxisAndAngle(e, diffAngle);
-			const rp0 = Quaternion.rotate(Quaternion.create(), q0, p0);
+			knnP0[0] = v.x - vref.x;
+			knnP0[1] = v.y - vref.y;
+			knnP0[2] = v.z - vref.z;
+
+			const rp0 = Quaternion.rotate(q0, knnP0);
 
 			v.x = rp0[0] + vref.x;
 			v.y = rp0[1] + vref.y;
 			v.z = rp0[2] + vref.z;
 		});
-	}
-
-	private rotatePointRecRodriges(n: FacesEdge, vref: Vertex, e: Float32Array, diffAngle: number) {
-
-		this.facesInfo.get(n.toFaceIndex).vertices.forEach(v => {
-			const vv = Vector3.sub(Vector3.create(),
-				Vector3.createFromCoords(v.x, v.y, v.z),
-				Vector3.createFromCoords(vref.x, vref.y, vref.z),
-			);
-			Myriahedral.rodriguesRotatePoint(vv, e, diffAngle);
-
-			v.x = vv[0] + vref.x;
-			v.y = vv[1] + vref.y;
-			v.z = vv[2] + vref.z;
-		});
-
-		n.children.forEach(c => this.rotatePointRecRodriges(c, vref, e, diffAngle));
-	}
-
-	private static rodriguesRotatePoint(v: Float32Array, e: Float32Array, diffAngle: number) {
-
-		const ev = Vector3.cross(Vector3.create(), e, v);
-		const dotev = Vector3.dot(e, v) * (1 - Math.cos(diffAngle));
-
-		const vrot =
-			Vector3.add(Vector3.create(),
-				Vector3.add(Vector3.create(),
-					Vector3.mul(Vector3.create(), v, Math.cos(diffAngle)),
-					Vector3.mul(Vector3.create(), ev, Math.sin(diffAngle))
-				),
-				Vector3.mul(Vector3.create(), e, dotev)
-			);
-
-		v[0] = vrot[0];
-		v[1] = vrot[1];
-		v[2] = vrot[2];
-
 	}
 }
