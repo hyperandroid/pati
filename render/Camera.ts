@@ -72,7 +72,12 @@ export default class Camera {
 	}
 
 	lookAt(x: number, y: number, z: number) {
-		Vector3.set(this.forward, x, y, z);
+		Vector3.normalize(this.forward,
+			Vector3.sub(
+				this.forward,
+				Vector3.createFromCoords(x, y, z),
+				this.position));
+		this.setup(this.position, this.forward, this.up);
 	}
 
 	advance(amount: number) {
@@ -125,5 +130,6 @@ export default class Camera {
 		v0[2] = Math.cos(radians(this.pitch)) * Math.sin(radians(this.yaw));
 
 		Vector3.normalize(this.forward, v0);
+		this.sync();
 	}
 }

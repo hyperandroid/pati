@@ -12,7 +12,8 @@ export enum MaterialType {
 	TEXTURE,
 	REFLECTIVE,
 	REFRACTIVE,
-	COLOR
+	COLOR,
+	TEXTURE_NO_LIGHT,
 }
 
 export interface MaterialDefinition {
@@ -68,6 +69,13 @@ export default class Material {
 			ambient,
 			shininess,
 		});
+	}
+
+	static TextureNoLight(diffuse: Texture, ambient: number) {
+		return new Material(MaterialType.TEXTURE_NO_LIGHT, {
+			diffuse,
+			ambient,
+		} );
 	}
 
 	static Color(color: Float32Array) {

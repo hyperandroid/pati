@@ -9,7 +9,7 @@ import {DirectionalLight, PointLight} from "../Light";
 /**
  * just draw geometry in a plain pink color
  */
-export default class TextureShader extends Shader {
+export default class LambertTextureShader extends Shader {
 
 	light = true;
 
@@ -22,29 +22,17 @@ export default class TextureShader extends Shader {
 				
 				// directional lights, 
 				struct Light {
-					// 				point light
-					vec3 position;
-					float constant;
-					float linear;
-					float quadratic;					
 					
 					// 				directional light
 					vec3 direction;	
 				  
 					vec3 ambient;
-					vec3 diffuse;
-					vec3 specular;
-					
-					//				spot light
-					float cutoff;
+					vec3 diffuse;					
 				};
 				
  				struct Material {
-					float     ambient;
-					
+					float     ambient;					
 					sampler2D diffuse;
-					sampler2D specular;
-					float     shininess;
 			   	};  
 				
 			`,
@@ -120,13 +108,16 @@ export default class TextureShader extends Shader {
 					vec3 norm = 		normalize(vNormal);
 					vec3 lightDir = 	normalize(uLight.position - vFragmentPos);
 					
-					vec3 color = getAmbient() + getDiffuse(norm, lightDir)
+					vec3 color = getAmbient()
+									#ifdef DIFFUSSE
+									 + getDiffuse(norm, lightDir)
+									#endif
 									#ifdef SPECULAR 
 									 + getSpecular(norm, lightDir)
 									#endif
 										;
 									
-					#ifdef SPECULAR
+					#ifdef DIFUSSE
 						float distance = 	length(uLight.position - vFragmentPos);
 						float attenuation = pow(1.0 / (	uLight.constant + 
 													uLight.linear * distance + 
@@ -168,6 +159,7 @@ export default class TextureShader extends Shader {
 				"uMaterial.shininess",
 			],
 			defines: defines ?? {
+				"DIFFUSSE": "1",
 				"SPECULAR": "1",
 			},
 		});
@@ -269,17 +261,17 @@ export default class TextureShader extends Shader {
 		this.set1I("uMaterial.diffuse", 0);
 		this.set1F("uMaterial.ambient", material.ambient);
 
-		const light = e.light['point'] as PointLight;
 		if (this.light) {
 			material.specular.enableAsUnit(gl, 1);
 			this.set1I("uMaterial.specular", 1);
 			this.set1F("uMaterial.shininess", material.shininess);
-			this.set3FV("uLight.specular", light.getSpecular());
-		}
 
-		this.set3FV("uLight.diffuse", light.getDiffuse());
-		this.set3FV("uLight.position", light.getPosition());
-		this.set3FV("uLight.ambient", light.getAmbient());
+			const light = e.light['point'] as PointLight;
+			this.set3FV("uLight.ambient", light.getAmbient());
+			this.set3FV("uLight.diffuse", light.getDiffuse());
+			this.set3FV("uLight.specular", light.getSpecular());
+			this.set3FV("uLight.position", light.getPosition());
+		}
 
 		this.set3FV("uViewPos", e.cameraPosition());
 

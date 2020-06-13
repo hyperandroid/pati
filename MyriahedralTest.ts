@@ -1,6 +1,6 @@
 import Myriahedral, {FacesEdge} from "./render/geometry/Myriahedral";
 
-const m = new Myriahedral(6);
+const m = new Myriahedral(6, false);
 const data = m.getMeshData();
 
 const faceCenter: number[] = [];

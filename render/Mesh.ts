@@ -93,6 +93,16 @@ export default class Mesh implements RenderComponent {
 					cullDisabled: p.cullDisabled,
 				}, material);
 				break;
+			case MaterialType.TEXTURE_NO_LIGHT:
+				this.shaderInfo = e.getShader("textureNoLight").createVAO(gl, {
+					vertex: vertices,
+					uv,
+					normal: p.normals ?? this.generateNormals(vertices, index),
+					index,
+					instanceCount,
+					cullDisabled: p.cullDisabled,
+				}, material);
+				break;
 			case MaterialType.SKYBOX:
 				this.shaderInfo = e.getShader("skybox").createVAO(gl, {
 					vertex: vertices,
@@ -109,6 +119,17 @@ export default class Mesh implements RenderComponent {
 		}
 
 		return this;
+	}
+
+	remesh(e: Engine, vertices: Float32Array ) {
+
+		const gl = e.gl;
+		gl.bindVertexArray(this.shaderInfo.vao);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.geometryBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.normalBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, this.generateNormals(vertices), gl.STATIC_DRAW);
+		gl.bindVertexArray(null);
 	}
 
 	private generateNormals(vertices: Float32Array, index?: Uint16Array) : Float32Array {
@@ -248,20 +269,20 @@ export default class Mesh implements RenderComponent {
 		this.transformDirty = true;
 		return this;
 	}
-
-	static tessellateSphereRec(e: Engine, i: TessellationInfo): Mesh {
-		// const data = new SphereTessellator().tessellateFromTetrahedronRec(i.subdivisions);
-
-		const m = new Myriahedral(i.subdivisions);
-		const data = m.getMeshData();
-
-		return new Mesh().from(e, {
-			...data,
-			material: i.material,
-			cullDisabled: i.cullDisabled,
-		}, i.instanceCount ?? 1);
-
-	}
+	//
+	// static tessellateSphereRec(e: Engine, i: TessellationInfo): Mesh {
+	// 	// const data = new SphereTessellator().tessellateFromTetrahedronRec(i.subdivisions);
+	//
+	// 	const m = new Myriahedral(i.subdivisions);
+	// 	const data = m.getMeshData();
+	//
+	// 	return new Mesh().from(e, {
+	// 		...data,
+	// 		material: i.material,
+	// 		cullDisabled: i.cullDisabled,
+	// 	}, i.instanceCount ?? 1);
+	//
+	// }
 
 	static tessellateSphere(e: Engine, i: TessellationInfo): Mesh {
 		const data = new SphereTessellator().tessellateFromTetrahedronRec(i.subdivisions);

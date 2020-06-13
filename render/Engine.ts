@@ -43,6 +43,18 @@ export default class Engine {
 	private rotation= Vector3.create();
 	private scale = Vector3.createFromCoords(1,1,1);
 
+	exy = 0;
+	exz = 0;
+	eyz = 0;
+
+	unfoldScale = 90;
+	myriahedral: Myriahedral;
+
+	normals = false;
+	cuts = false;
+	folds = false;
+	outline = false;
+
 	constructor(w: number, h: number) {
 		Platform.initialize(w, h);
 
@@ -59,13 +71,11 @@ export default class Engine {
 
 		this.currentCamera = new Camera();
 		this.camera["camera0"] = this.currentCamera;
-		this.camera["camera1"] = new Camera().setup(
-			new Float32Array([0, 0, 2]),
-			new Float32Array([0, 0, -1]),
-			new Float32Array([0, 1, 0]));
 
 		this.shader["null"] = new NullShader(gl);
 		this.shader["texture"] = new TextureShader(gl);
+		this.shader["textureNoLight"] = new TextureShader(gl, {});
+
 		this.shader["skybox"] = new SkyboxShader(gl);
 		this.shader["reflectiveEnvMap"] = new EnvironmentMapShader(gl);
 		this.shader["refractiveEnvMap"] = new EnvironmentMapShader(gl, true);
@@ -98,41 +108,40 @@ export default class Engine {
 		this.mesh["lightprobe"] = new Cube(this, Material.Color(new Float32Array([1.0, 0.0, 0.0, 1.0])), false);
 
 		this.mesh["cube"] = new Cube(this,
-			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 16), false, N*N);
+			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 32), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
 
+		const m2 = new Myriahedral(6, false);
+		const data2 = m2.getMeshData();
+		this.buildFoldsCutsLines(data2, true, 20, 20.5);
+		// const moon = new Mesh().from(this, {
+		// 	...data2,
+		// 	material: Material.Texture(this.getTexture("jupiter"),this.getTexture("jupiter"), .2, 8),
+		// 	cullDisabled: false,
+		// }, 1);
+		// this.mesh["moon"] = moon.setScale(5);
 
-		const m = new Myriahedral(6);
+
+		const m = new Myriahedral(6, true);
+		m.unfold(this.unfoldScale/90);
 		const data = m.getMeshData();
-		this.buildFoldsCutsLines(data, false);
+		this.buildUnfoldingOutline(data);
 		const earth = new Mesh().from(this, {
 			...data,
-			material: Material.Texture(
-							this.getTexture("earth"),
-							this.getTexture("specular"),
-							1.2,
-							32
-						),
+			material: Material.TextureNoLight(this.getTexture("earth"), .6),
 			cullDisabled: true,
 		}, 1);
 		this.mesh["earth"] = earth.setScale(20);
-
-		// this.mesh["moon"] = Mesh.tessellateSphereRec(this, {
-		// 	material: Material.Texture(
-		// 		this.getTexture("earth"),
-		// 		this.getTexture("specular"),
-		// 		2.2,
-		// 		32
-		// 	),
-		// 	subdivisions: 4,
-		// 	cullDisabled: true,
-		// }).setScale(20).setPosition(45,0,0);
+		this.myriahedral = m;
 
 		this.currentCamera.setup(
-			[0, 25, -10],
-			[0, -20, -2],
+			[0, 30, 50],
+			[0, 0, -1],
 			[0, 1, 0]);
+
+		this.currentCamera.lookAt(0,0,0);
+
 
 		this.light["sun"] = Light.Directional({
 			ambient: [.1, .1, .1],
@@ -164,7 +173,7 @@ export default class Engine {
 		});
 	}
 
-	private buildFoldsCutsLines(data: GeometryInfoIndexed, showCuts: boolean) {
+	private buildFoldsCutsLines(data: GeometryInfoIndexed, showCuts: boolean, s1: number, s2: number) {
 
 		const gl = this.gl;
 
@@ -203,7 +212,7 @@ export default class Engine {
 			cullDisabled: true,
 			uv: null,
 			normals: null,
-		}, 1).setScale(20.5);
+		}, 1).setScale(s2);
 
 		const mc2 = Material.Color(new Float32Array([1, 0, 1, 1]));
 		mc2.renderMode = gl.LINES;
@@ -214,7 +223,7 @@ export default class Engine {
 			cullDisabled: true,
 			uv: null,
 			normals: null,
-		}, 1).setScale(20.5);
+		}, 1).setScale(s2);
 
 
 		/// cuts
@@ -234,7 +243,7 @@ export default class Engine {
 				cullDisabled: true,
 				uv: null,
 				normals: null,
-			}, 1).setScale(20.5);
+			}, 1).setScale(s2);
 
 			const mc4 = Material.Color(new Float32Array([0, 1, 1, 1]));
 			mc4.renderMode = gl.POINTS;
@@ -245,7 +254,7 @@ export default class Engine {
 				cullDisabled: true,
 				uv: null,
 				normals: null,
-			}, 1).setScale(20.5);
+			}, 1).setScale(s2);
 		}
 		/*****/
 
@@ -284,7 +293,7 @@ export default class Engine {
 			cullDisabled: true,
 			uv: null,
 			normals: null,
-		}, 1).setScale(20);
+		}, 1).setScale(s1);
 
 	}
 
@@ -348,14 +357,16 @@ export default class Engine {
 
 		this.surface["surface0"].enableAsTextureTarget(this);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-		this.currentCamera = this.camera["camera1"];
-		this.currentCamera.sync();
-		const u = this.time/1777;
-		Vector3.set(this.currentCamera.position,
-			13*Math.sin(u),
-			Math.sin(u)/3,
-			13*Math.cos(u));
-		this.currentCamera.lookAt(-this.currentCamera.position[0],0,-this.currentCamera.position[2]);
+
+		// this.currentCamera = this.camera["camera1"];
+		// this.currentCamera.sync();
+		// const u = this.time/1777;
+		// Vector3.set(this.currentCamera.position,
+		// 	13*Math.sin(u),
+		// 	Math.sin(u)/3,
+		// 	13*Math.cos(u));
+		// this.currentCamera.lookAt(-this.currentCamera.position[0],0,-this.currentCamera.position[2]);
+
 		this.mesh["cube2"].render(this);
 		this.mesh["skybox"].render(this);
 
@@ -373,29 +384,43 @@ export default class Engine {
 		this.updateInstancingMatrices();
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
 		this.mesh["earth"].render(this);
+		(this.mesh["earth"] as Mesh).euler(this.exy, this.exz, this.eyz);
+
 		// const moon = this.mesh["moon"];
 		// (moon as Mesh).euler(0, (this.time%25000)/25000*2*Math.PI, 0 );
 		// moon.render(this);
 
 		const light = this.light['point'] as PointLight;
+		light.setPosition(100,50,40);
 		// light.setPosition(
 		// 	25*Math.cos((this.time%15000)/15000*2*Math.PI),
 		// 	5,
 		// 	25*Math.sin((this.time%15000)/15000*2*Math.PI));
 
 		(this.mesh["lightprobe"] as Mesh).setPositionV(light.getPosition());
-		(this.mesh["lightprobe"] as Mesh).setScale(.3);
+		(this.mesh["lightprobe"] as Mesh).setScale(3);
 		(this.mesh["lightprobe"] as Mesh).getMaterial().definition.color.set(light.getDiffuse());
 		const lp = this.mesh["lightprobe"];
 		lp.render(this);
+
+		if (this.folds) {
+			this.mesh["folds"]?.render(this);
+			this.mesh["folds2"]?.render(this);
+		}
+		if (this.cuts) {
+			this.mesh["cuts"]?.render(this);
+			this.mesh["cuts2"]?.render(this);
+		}
+
+		if (this.normals) {
+			this.mesh["normals"]?.render(this);
+		}
+
+		if (this.outline) {
+			this.mesh['outline']?.render(this);
+		}
+
 		this.mesh["skybox"].render(this);
-
-		// this.mesh["folds"]?.render(this);
-		// this.mesh["folds2"]?.render(this);
-		// this.mesh["cuts"]?.render(this);
-		// this.mesh["cuts2"]?.render(this);
-		// this.mesh["normals"]?.render(this);
-
 		// const p = light.getPosition();
 		// this.currentCamera.lookAt(p[0], -p[1], p[2]);
 
@@ -408,8 +433,7 @@ export default class Engine {
 		// this.currentCamera.lookAt(
 		// 	r*Math.cos(angle),Math.sin(angle2)*3.5 + 5,r*Math.sin(angle)		// from
 		// );
-
-		this.currentCamera.sync();
+		// this.currentCamera.sync();
 
 		this.time += delta;
 	}
@@ -442,9 +466,44 @@ export default class Engine {
 
 	mouseEvent(pixelsIncrementX: number,pixelsIncrementY: number) {
 		this.camera["camera0"].anglesFrom(pixelsIncrementX,pixelsIncrementY);
+		this.camera["camera0"].sync();
+	}
+
+	unfold() {
+		this.myriahedral.unfold(this.unfoldScale/90);
+		const data = this.myriahedral.getMeshData();
+		(this.mesh['earth'] as Mesh).remesh(this, data.vertices);
+		this.updateUnfoldingOutline(data);
+	}
+
+	updateUnfoldingOutline(data: GeometryInfoIndexed) {
+		(this.mesh['outline'] as Mesh).remesh(this, data.vertices);
+	}
+
+	buildUnfoldingOutline(data: GeometryInfoIndexed) {
+
+		const gl = this.gl;
+		const indices: number[] = [];
+		for(let i = 0; i < data.index.length; i+=3) {
+			indices.push(data.index[i],     data.index[i + 1]);
+			indices.push(data.index[i + 1], data.index[i + 2]);
+			indices.push(data.index[i + 2], data.index[i]);
+		}
+
+		const mc = Material.Color(new Float32Array([1, 1, 1, 1]));
+		mc.renderMode = gl.LINES;
+		this.mesh["outline"] = new Mesh().from(this, {
+			material: mc,
+			index: new Uint16Array(indices),
+			vertices: data.vertices,
+			cullDisabled: true,
+			uv: null,
+			normals: null,
+		}, 1).setScale(20);
 	}
 
 	keyboardEvent(key: string, down: boolean) {
+
 		const c = this.camera["camera0"];
 		switch(key) {
 			case 'w':
@@ -464,6 +523,65 @@ export default class Engine {
 				break;
 			case 'z':
 				c.upAmount = down ? 1 : 0;
+				break;
+
+
+			case 'j':
+				this.exz += Math.PI/90;
+				break;
+			case 'l':
+				this.exz -= Math.PI/90;
+				break;
+			case 'i':
+				this.exy -= Math.PI/90;
+				break;
+			case 'k':
+				this.exy += Math.PI/90;
+				break;
+			case 'u':
+				this.eyz -= Math.PI/90;
+				break;
+			case 'p':
+				this.eyz += Math.PI/90;
+				break;
+
+			case '1':
+					this.unfoldScale += 1;
+					if (this.unfoldScale > 90) {
+						this.unfoldScale = 90;
+					} else {
+						this.unfold();
+					}
+				break;
+			case '2':
+					this.unfoldScale -= 1;
+					if (this.unfoldScale < 0) {
+						this.unfoldScale = 0;
+					} else {
+						this.unfold();
+					}
+				break;
+
+			case '0':
+				if (!down) {
+					this.normals = !this.normals;
+				}
+				break;
+			case '8':
+				if (!down) {
+					this.folds = !this.folds;
+				}
+				break;
+			case '9':
+				if (!down) {
+					this.cuts = !this.cuts;
+				}
+				break;
+
+			case '3':
+				if (!down) {
+					this.outline = !this.outline;
+				}
 				break;
 		}
 	}
