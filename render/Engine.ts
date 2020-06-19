@@ -471,12 +471,12 @@ export default class Engine {
 	unfold() {
 		this.myriahedral.unfold(this.unfoldScale/90);
 		const data = this.myriahedral.getMeshData();
-		(this.mesh['earth'] as Mesh).remesh(this, data.vertices);
+		(this.mesh['earth'] as Mesh).remesh(this, data.vertices, data.uv);
 		this.updateUnfoldingOutline(data);
 	}
 
 	updateUnfoldingOutline(data: GeometryInfoIndexed) {
-		(this.mesh['outline'] as Mesh).remesh(this, data.vertices);
+		(this.mesh['outline'] as Mesh).remesh(this, data.vertices, data.uv);
 	}
 
 	buildUnfoldingOutline(data: GeometryInfoIndexed) {
@@ -505,6 +505,8 @@ export default class Engine {
 		}, 1).setScale(20);
 	}
 
+	longitude = 0;
+	latitude = 0;
 	start = 0;
 	keyboardEvent(key: string, down: boolean) {
 
@@ -609,6 +611,27 @@ export default class Engine {
 				if (!down) {
 					this.outline = !this.outline;
 				}
+				break;
+
+			case '4':
+				// if (!down) {
+			{
+				this.longitude++;
+				this.myriahedral.uv = this.myriahedral.calculateUV(this.longitude / 180 * Math.PI, this.latitude/180*Math.PI);
+				const data = this.myriahedral.getMeshData();
+				(this.mesh['earth'] as Mesh).remesh(this, data.vertices, data.uv);
+			}
+				// }
+				break;
+			case '5':
+				// if (!down) {
+			{
+				this.latitude++;
+				this.myriahedral.uv = this.myriahedral.calculateUV(this.longitude / 180 * Math.PI, this.latitude/180*Math.PI);
+				const data = this.myriahedral.getMeshData();
+				(this.mesh['earth'] as Mesh).remesh(this, data.vertices, data.uv);
+			}
+				// }
 				break;
 		}
 	}

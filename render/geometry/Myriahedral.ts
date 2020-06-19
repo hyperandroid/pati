@@ -286,6 +286,8 @@ export default class Myriahedral {
 	folds: MSTNode[];
 	cuts: Edge[];
 
+	private forceCoplanarity = false;
+
 	constructor(subdivisions: number, unfold: boolean) {
 
 		this.subdivisions = subdivisions;
@@ -475,12 +477,15 @@ export default class Myriahedral {
 		};
 	}
 
-	protected calculateUV() {
-		const uv = new Float32Array(this.vertex.length * 2);
+	calculateUV(ox?: number, oy?: number) {
+		const uv = new Float32Array(this.originalVertices.length * 2);
 
-		this.vertex.forEach((v, i) => {
-			uv[i * 2] = .5 + Math.atan2(v.x, v.z) / (2 * Math.PI);
-			uv[i * 2 + 1] = .5 - Math.asin(v.y) / Math.PI;
+		ox = ox ?? 0;
+		oy = oy ?? 0;
+
+		this.originalVertices.forEach((v, i) => {
+			uv[i * 2] = .5 + (ox + Math.atan2(v.x, v.z)) / (2 * Math.PI);
+			uv[i * 2 + 1] = .5 - (oy + Math.asin(v.y)) / Math.PI;
 		});
 
 		return uv;
@@ -599,11 +604,12 @@ export default class Myriahedral {
 		const processed = new Set<number>();
 		processed.add(root.id);
 		this.buildFoldingTreeImpl(processed, root.fromFaceIndex, root);
+		console.log(`Swapped count ${this.swappedCount}`);
 		root.swap();
 	}
 
+	swappedCount = 0;
 	private buildFoldingTreeImpl(processed: Set<number>, parent: number, nodeParent: FacesEdge) {
-
 
 		const children = this.foldsMST.filter(f => {
 			return !processed.has(f.id) && (f.fromFaceIndex === parent || f.toFaceIndex === parent);
@@ -613,6 +619,7 @@ export default class Myriahedral {
 
 			if (!processed.has(f.id)) {
 				if (f.fromFaceIndex !== parent) {
+					this.swappedCount++;
 					f.swap();
 				}
 
@@ -621,7 +628,9 @@ export default class Myriahedral {
 				}
 				f.parent = nodeParent;
 
-				this.addFromTo(nodeParent?.fromFaceIndex ?? -1, f.fromFaceIndex);
+				this.addFromTo(
+					nodeParent?.fromFaceIndex ?? -1,
+					f.fromFaceIndex);
 
 				processed.add(f.id);
 			}
@@ -741,11 +750,7 @@ export default class Myriahedral {
 
 			// this would work too, but I want debug normal in the center of each face.
 			// const normal = this.normalForVertices(originalVertices);
-			const nx = (originalVertices[0].x + originalVertices[1].x + originalVertices[2].x)/3;
-			const ny = (originalVertices[0].y + originalVertices[1].y + originalVertices[2].y)/3;
-			const nz = (originalVertices[0].z + originalVertices[1].z + originalVertices[2].z)/3;
-			const l = 1 / Math.sqrt(nx*nx + ny*ny + nz*nz);
-			const normal = [nx*l, ny*l, nz*l];
+			const normal = Myriahedral.getCenterPoint(originalVertices, true);
 
 			this.facesInfo.set(ni, {
 				id: ni,
@@ -772,16 +777,32 @@ export default class Myriahedral {
 	private unfoldSetup() {
 
 		this.buildFoldingTree();
-
 		this.reTriangulateGeometry();
-		this.setFoldsOrientations();
-		this.uv = this.calculateUV();
+
 		this.originalVertices = this.vertex;
+
+		this.uv = this.calculateUV();
+		this.setFoldsOrientations();
+	}
+
+	private static getCenterPoint(v: Vertex[], normalize: boolean): number[] {
+		let nx = (v[0].x + v[1].x + v[2].x) / 3;
+		let ny = (v[0].y + v[1].y + v[2].y) / 3;
+		let nz = (v[0].z + v[1].z + v[2].z) / 3;
+
+		if (normalize) {
+			const l = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+			nx *= l;
+			ny *= l;
+			nz *= l;
+		}
+
+		return [nx, ny, nz];
 	}
 
 	private setFoldsOrientations() {
 
-		this.foldsMST.forEach( fold => {
+		this.foldsMST.forEach(fold => {
 
 			const fi0 = this.facesInfo.get(fold.fromFaceIndex);
 			const fi1 = this.facesInfo.get(fold.toFaceIndex);
@@ -794,25 +815,31 @@ export default class Myriahedral {
 				return fi0.vertices[fi0.prevVerticesIndices.indexOf(v)];
 			});
 
-			if (
-				(
-					fi0.prevVerticesIndices[0]===fi1.prevVerticesIndices[2] &&
-					fi0.prevVerticesIndices[2]===fi1.prevVerticesIndices[0]
-				)
-			) {
-				fold.orientationMultiplier = -1;
-			}
-
-			// const in00 = (1 + fi0.prevVerticesIndices.indexOf(rotationEdgeVerticesIndices[0])) % 3;
-			// const in01 = (fi0.prevVerticesIndices.indexOf(rotationEdgeVerticesIndices[1])) % 3;
-			//
-			// fold.orientationMultiplier = in00!==in01 ? -1 : 1;
+			// if (fold.edge.vertex1 === rotationEdgeVertices[0].index && fold.edge.vertex0 === rotationEdgeVertices[1].index) {
+			// 	fold.orientationMultiplier = -1
+			// }
 
 			fold.commonAxisVertices = rotationEdgeVertices;
 
 		});
+
+		this.forceCoplanarity = true;
+		this.unfold(1);
+		this.forceCoplanarity = false;
 	}
 
+	private unfoldProcess(scale: number) {
+		let t= Date.now();
+		this.foldsMST.filter(e => {
+			return e.parent === null
+		}).forEach(f => {
+			this.unfoldImpl(f, scale);
+		});
+		t= Date.now() - t;
+		console.log(`unfold vertices took ${t}ms.`);
+	}
+
+	nonCoPlanar = 0;
 	public unfold(scale: number) {
 
 		this.vertex = this.originalVertices.map( v => { return v.clone() } );
@@ -820,20 +847,10 @@ export default class Myriahedral {
 			f.vertices.forEach( (v,i) => {
 				f.vertices[i] = this.vertex[v.index];
 			});
-			f.normal = this.normalForVertices(f.vertices);
+			f.normal = Myriahedral.normalForVertices(f.vertices);
 		} );
 
-		let t= Date.now();
-		// this.foldsMST.filter(e => {
-		// 	return e.parent === null
-		// }).forEach(f => {
-		// 	this.unfoldImpl(f, scale);
-		// });
-
-		this.unfoldImpl( this.foldsMST[(this.foldsMST.length*.75)|0], scale);
-
-		t= Date.now() - t;
-		console.log(`unfold vertices took ${t}ms.`);
+		this.unfoldProcess(scale)
 
 		this.folds = this.foldsMST.map(e => {
 			return {
@@ -842,9 +859,11 @@ export default class Myriahedral {
 			}
 		});
 
+		console.log(`Non coplanar ${this.nonCoPlanar}`);
+		this.nonCoPlanar = 0;
 	}
 
-	private normalForVertices(v: Vertex[]): number[] {
+	private static normalForVertices(v: Vertex[]): number[] {
 		const x0 = v[0].x - v[1].x;
 		const y0 = v[0].y - v[1].y;
 		const z0 = v[0].z - v[1].z;
@@ -863,7 +882,7 @@ export default class Myriahedral {
 	}
 
 	private normalForFaceIndex(i: number) {
-		return this.normalForVertices(this.facesInfo.get(i).vertices);
+		return Myriahedral.normalForVertices(this.facesInfo.get(i).vertices);
 	}
 
 	private unfoldImpl(node: FacesEdge, scale: number) {
@@ -881,11 +900,10 @@ export default class Myriahedral {
 
 		const dot = Math.abs(n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2]);
 
-		if (dot >= .998) {
+		if (dot >= .9999) {
 			return true;
 		}
 
-		console.log(`non coplanar ${f0}-${f1}, ${dot}`);
 		return false;
 	}
 
@@ -912,9 +930,10 @@ export default class Myriahedral {
 
 		this.rotatePointRecQuaterion(node, rotationEdgeVertices[0], q0);
 
-		// if (node.fromFaceIndex===189 && node.toFaceIndex===190) {
-			this.coplanar(node.fromFaceIndex, node.toFaceIndex);
-		// }
+		if (this.forceCoplanarity && !this.coplanar(node.fromFaceIndex, node.toFaceIndex)) {
+			this.nonCoPlanar++;
+			node.orientationMultiplier *= -1;
+		}
 	}
 
 	private rotatePointRecQuaterion(n: FacesEdge, vref: Vertex, q0: Float32Array) {

@@ -4,8 +4,7 @@ import RenderComponent from "./RenderComponent";
 import Engine from "./Engine";
 import {ShaderVAOInfo} from "./shader/Shader";
 import Material, {MaterialType} from "./Material";
-import SphereTessellator, {Vector3T} from "../math/SphereTessellator";
-import Myriahedral from "./geometry/Myriahedral";
+import SphereTessellator from "../math/SphereTessellator";
 
 export interface MeshParams {
 	vertices: Float32Array,
@@ -34,8 +33,6 @@ export default class Mesh implements RenderComponent {
 
 	transformDirty = true;
 	transform = Matrix4.create();
-
-	renderMode: number;
 
 	constructor() {
 
@@ -121,7 +118,7 @@ export default class Mesh implements RenderComponent {
 		return this;
 	}
 
-	remesh(e: Engine, vertices: Float32Array ) {
+	remesh(e: Engine, vertices: Float32Array, uv: Float32Array ) {
 
 		const gl = e.gl;
 		gl.bindVertexArray(this.shaderInfo.vao);
@@ -129,6 +126,8 @@ export default class Mesh implements RenderComponent {
 		gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.normalBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, this.generateNormals(vertices), gl.STATIC_DRAW);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.shaderInfo.uvBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, uv, gl.STATIC_DRAW);
 		gl.bindVertexArray(null);
 	}
 
@@ -140,7 +139,7 @@ export default class Mesh implements RenderComponent {
 		const v4 = Vector3.create();
 		const v5 = Vector3.create();
 
-		let normals: Float32Array = new Float32Array(vertices.length);;
+		let normals: Float32Array = new Float32Array(vertices.length);
 
 		if (index) {
 
