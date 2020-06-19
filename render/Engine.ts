@@ -111,8 +111,7 @@ export default class Engine {
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 32), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-
-		const m2 = new Myriahedral(6, false);
+		const m2 = new Myriahedral(5, false);
 		const data2 = m2.getMeshData();
 		this.buildFoldsCutsLines(data2, true, 20, 20.5);
 		// const moon = new Mesh().from(this, {
@@ -122,8 +121,7 @@ export default class Engine {
 		// }, 1);
 		// this.mesh["moon"] = moon.setScale(5);
 
-
-		const m = new Myriahedral(6, true);
+		const m = new Myriahedral(5, true);
 		m.unfold(this.unfoldScale/90);
 		const data = m.getMeshData();
 		this.buildUnfoldingOutline(data);
@@ -136,8 +134,8 @@ export default class Engine {
 		this.myriahedral = m;
 
 		this.currentCamera.setup(
-			[0, 30, 50],
-			[0, 0, -1],
+			[0, 30, -50],
+			[0, 0, 1],
 			[0, 1, 0]);
 
 		this.currentCamera.lookAt(0,0,0);
@@ -385,6 +383,7 @@ export default class Engine {
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
 		this.mesh["earth"].render(this);
 		(this.mesh["earth"] as Mesh).euler(this.exy, this.exz, this.eyz);
+		(this.mesh["outline"] as Mesh).euler(this.exy, this.exz, this.eyz);
 
 		// const moon = this.mesh["moon"];
 		// (moon as Mesh).euler(0, (this.time%25000)/25000*2*Math.PI, 0 );
@@ -484,10 +483,14 @@ export default class Engine {
 
 		const gl = this.gl;
 		const indices: number[] = [];
+
 		for(let i = 0; i < data.index.length; i+=3) {
-			indices.push(data.index[i],     data.index[i + 1]);
-			indices.push(data.index[i + 1], data.index[i + 2]);
-			indices.push(data.index[i + 2], data.index[i]);
+		// for(let i = 0; i < data.index.length; i+=3) {
+		// 	if (wrongIds.indexOf(i/3)!==-1) {
+				indices.push(data.index[i], data.index[i + 1]);
+				indices.push(data.index[i + 1], data.index[i + 2]);
+				indices.push(data.index[i + 2], data.index[i]);
+			// }
 		}
 
 		const mc = Material.Color(new Float32Array([1, 1, 1, 1]));
@@ -502,6 +505,7 @@ export default class Engine {
 		}, 1).setScale(20);
 	}
 
+	start = 0;
 	keyboardEvent(key: string, down: boolean) {
 
 		const c = this.camera["camera0"];
@@ -523,6 +527,29 @@ export default class Engine {
 				break;
 			case 'z':
 				c.upAmount = down ? 1 : 0;
+				break;
+
+			case 'n':
+				if (!down) {
+
+
+					this.start += 3;
+					const dd = this.myriahedral.getMeshData();
+					this.start %= dd.index.length;
+					console.log(this.myriahedral.facesInfo.get(this.start/3));
+					this.buildUnfoldingOutline(dd);
+				}
+				break;
+				case 'm':
+				if (!down) {
+
+
+					const dd = this.myriahedral.getMeshData();
+					this.start -= 3;
+					this.start %= dd.index.length;
+					console.log(this.myriahedral.facesInfo.get(this.start/3));
+					this.buildUnfoldingOutline(dd);
+				}
 				break;
 
 
