@@ -1,5 +1,6 @@
 import Vector3 from "../../math/Vector3";
 import Quaternion from "../../math/Quaternion";
+import {EdgeType, FaceType, IcosahedronGeometry, MyriahedronGeometry} from "./Solids";
 
 export interface GeometryInfoIndexed {
 	vertices: Float32Array;
@@ -130,58 +131,6 @@ export interface MSTNode {
 	f1: number;
 }
 
-const tetrahedron = {
-
-	vertices: [
-		[0.0, -1.0, 2.0],
-		[1.73205081, -1.0, -1.0],
-		[-1.73205081, -1.0, -1.0],
-		[0.0, 2.0, 0.0],
-	],
-	edges: [[2, 0], [0, 1], [3, 0], [1, 2], [2, 3], [3, 1]],
-	faces: [
-		[0, 2, 1],
-		[0, 3, 2],
-		[0, 1, 3],
-		[1, 2, 3],
-	]
-};
-
-type VertexType = number[];
-type FaceType = number[];
-type EdgeType = number[];
-
-const cube = {
-	vertices: [
-		[0.5, -0.5, -0.5],
-		[-0.5, -0.5, -0.5],
-		[-0.5, -0.5, 0.5],
-		[0.5, -0.5, 0.5],
-		[0.5, 0.5, -0.5],
-		[-0.5, 0.5, -0.5],
-		[-0.5, 0.5, 0.5],
-		[0.5, 0.5, 0.5],
-	],
-
-	faces: [
-			[2, 1, 0], [3, 2, 0],
-			[3, 0, 4], [7, 3, 4],
-			[0, 1, 5], [4, 0, 5],
-			[1, 2, 6], [5, 1, 6],
-			[2, 3, 7], [6, 2, 7],
-			[4, 5, 6], [7, 4, 6],
-		],
-
-	edges: [
-		[2,0],[3,0],[3,4],
-		[0,1],[4,0],[0,5],
-		[1,2],[5,1],[1,6],
-		[2,3],[3,7],[6,2],
-		[2,7],[4,5],[5,6],
-		[7,4],[4,6],[6,7]
-	]
-}
-
 class MM<T> {
 
 	map = new Map<number, Map<number, T>>();
@@ -259,11 +208,6 @@ interface FaceInfo {
 	normal: number[];
 }
 
-interface Geometry {
-	vertices: VertexType[];	// [ [0,1,2] ]
-	edges: EdgeType[];
-	faces: FaceType[];
-}
 
 const knn = Vector3.create();
 const knnP0 = Vector3.create();
@@ -293,7 +237,7 @@ export default class Myriahedral {
 		this.subdivisions = subdivisions;
 
 		const tbm = Date.now();
-		this.buildMyriahedron(tetrahedron, true);
+		this.buildMyriahedron(IcosahedronGeometry, true);
 		console.log(`myriahedron build time ${Date.now()-tbm}ms`);
 
 		// get only actual edges, not the ones used to subdivide.
@@ -343,12 +287,40 @@ export default class Myriahedral {
 
 	}
 
-	private buildMyriahedron(geometry: Geometry, normalize: boolean) {
+	private edgesFromFaces(fs: FaceType[]): EdgeType[] {
+
+		const edges: EdgeType[] = [];
+
+		fs.forEach( f => {
+			for (let i = 0; i < f.length; i++) {
+				edges.push([f[i], f[(i + 1) % f.length]]);
+			}
+		});
+
+		const edgesMap = new MM<EdgeType>();
+		edges.forEach( e => {
+			if (edgesMap.getI(e[0], e[1])===undefined) {
+				edgesMap.insert(e[0], e[1], e);
+			}
+		})
+
+		const retEdges: EdgeType[] = [];
+		edgesMap.forEach(e => {
+			retEdges.push(e);
+		})
+
+		return retEdges;
+	}
+
+	private buildMyriahedron(geometry: MyriahedronGeometry, normalize: boolean) {
 
 		geometry.vertices.forEach(v => {
 			this.insertVertex(new Vertex(v[0], v[1], v[2]));
 		})
 
+		if (geometry.edges===undefined) {
+			geometry.edges = this.edgesFromFaces(geometry.faces);
+		}
 		geometry.edges.forEach(e => {
 			this.insertEdge(this.vertex[e[0]], this.vertex[e[1]], 0);
 		});
@@ -811,15 +783,9 @@ export default class Myriahedral {
 				return fi1.prevVerticesIndices.indexOf(v) !== -1;		// valores comunes
 			});
 
-			const rotationEdgeVertices = rotationEdgeVerticesIndices.map(v => {
+			fold.commonAxisVertices = rotationEdgeVerticesIndices.map(v => {
 				return fi0.vertices[fi0.prevVerticesIndices.indexOf(v)];
 			});
-
-			// if (fold.edge.vertex1 === rotationEdgeVertices[0].index && fold.edge.vertex0 === rotationEdgeVertices[1].index) {
-			// 	fold.orientationMultiplier = -1
-			// }
-
-			fold.commonAxisVertices = rotationEdgeVertices;
 
 		});
 
@@ -900,11 +866,8 @@ export default class Myriahedral {
 
 		const dot = Math.abs(n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2]);
 
-		if (dot >= .9999) {
-			return true;
-		}
+		return dot >= .9999;
 
-		return false;
 	}
 
 	private unfoldNodeRec(node: FacesEdge, scale: number) {
