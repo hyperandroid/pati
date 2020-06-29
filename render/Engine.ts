@@ -15,6 +15,7 @@ import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
 import Myriahedral, {GeometryInfoIndexed} from "./geometry/Myriahedral";
+import {CubeGeometry, IcosahedronGeometry, TetrahedronGeometry} from "./geometry/Solids";
 
 const N = 64;
 let pos = 0;
@@ -111,7 +112,7 @@ export default class Engine {
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 32), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-		const m2 = new Myriahedral(5, false);
+		const m2 = new Myriahedral().myriahedron(TetrahedronGeometry, 5, false);
 		const data2 = m2.getMeshData();
 		this.buildFoldsCutsLines(data2, true, 20, 20.5);
 		// const moon = new Mesh().from(this, {
@@ -121,7 +122,8 @@ export default class Engine {
 		// }, 1);
 		// this.mesh["moon"] = moon.setScale(5);
 
-		const m = new Myriahedral(5, true);
+		const m = new Myriahedral().myriahedron(IcosahedronGeometry, 5, true);
+		// const m = new Myriahedral().graticule();
 		m.unfold(this.unfoldScale/90);
 		const data = m.getMeshData();
 		this.buildUnfoldingOutline(data);

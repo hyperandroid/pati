@@ -1,6 +1,7 @@
 import Myriahedral, {FacesEdge} from "./render/geometry/Myriahedral";
+import {IcosahedronGeometry} from "./render/geometry/Solids";
 
-const m = new Myriahedral(6, false);
+const m = new Myriahedral().myriahedron(IcosahedronGeometry, 4, false);
 const data = m.getMeshData();
 
 const faceCenter: number[] = [];
@@ -30,19 +31,12 @@ for (let i = 0; i < faceCenter.length; i += 3) {
 }
 
 const polylineFolds: number[] = [];
-// data.folds.forEach((edge) => {
-// 	polylineFolds.push(foldsXY[edge.f0 * 2], foldsXY[edge.f0 * 2 + 1]);
-// 	polylineFolds.push(foldsXY[edge.f1 * 2], foldsXY[edge.f1 * 2 + 1]);
-// });
+data.folds.forEach((edge) => {
+	polylineFolds.push(foldsXY[edge.f0 * 2], foldsXY[edge.f0 * 2 + 1]);
+	polylineFolds.push(foldsXY[edge.f1 * 2], foldsXY[edge.f1 * 2 + 1]);
+});
 
 
-function rec( edge: FacesEdge) {
-	edge.children.forEach( c=> rec(c));
-
-	polylineFolds.push(foldsXY[edge.fromFaceIndex * 2], foldsXY[edge.fromFaceIndex * 2 + 1]);
-	polylineFolds.push(foldsXY[edge.toFaceIndex * 2], foldsXY[edge.toFaceIndex * 2 + 1]);
-}
-rec(data.foldsMST.filter( f => { return f.parent===null })[0]);
 
 
 const cutsXY: number[] = [];
@@ -101,7 +95,7 @@ function run() {
 	render(polylineFolds, polylineFolds.length);
 	// render(polylineFolds, N%polylineFolds.length);
 	ctx.strokeStyle = 'red';
-	// render(polylineCuts, polylineCuts.length);
+	render(polylineCuts, polylineCuts.length);
 	// render(polylineCuts, N%polylineCuts.length);
 	//N+=4;
 	// requestAnimationFrame(run);
