@@ -1,7 +1,12 @@
 import Myriahedral, {FacesEdge} from "./render/geometry/Myriahedral";
 import {IcosahedronGeometry} from "./render/geometry/Solids";
 
-const m = new Myriahedral().myriahedron(IcosahedronGeometry, 4, false);
+const m = new Myriahedral().myriahedron({
+	geometry: IcosahedronGeometry,
+	subdivisions: 4,
+	unfold: false,
+});
+
 const data = m.getMeshData();
 
 const faceCenter: number[] = [];

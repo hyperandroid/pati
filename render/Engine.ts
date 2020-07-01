@@ -15,7 +15,7 @@ import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
 import Myriahedral, {GeometryInfoIndexed} from "./geometry/Myriahedral";
-import {CubeGeometry, IcosahedronGeometry, TetrahedronGeometry} from "./geometry/Solids";
+import {IcosahedronGeometry, TetrahedronGeometry} from "./geometry/Solids";
 
 const N = 64;
 let pos = 0;
@@ -112,7 +112,12 @@ export default class Engine {
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 32), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-		const m2 = new Myriahedral().myriahedron(TetrahedronGeometry, 5, false);
+		// const m2 = new Myriahedral().myriahedron({
+		// 	geometry: TetrahedronGeometry,
+		// 	subdivisions: 5,
+		// 	unfold: false,
+		// });
+		const m2 = new Myriahedral().graticule();
 		const data2 = m2.getMeshData();
 		this.buildFoldsCutsLines(data2, true, 20, 20.5);
 		// const moon = new Mesh().from(this, {
@@ -122,8 +127,7 @@ export default class Engine {
 		// }, 1);
 		// this.mesh["moon"] = moon.setScale(5);
 
-		const m = new Myriahedral().myriahedron(IcosahedronGeometry, 5, true);
-		// const m = new Myriahedral().graticule();
+		const m = new Myriahedral().graticule();
 		m.unfold(this.unfoldScale/90);
 		const data = m.getMeshData();
 		this.buildUnfoldingOutline(data);
@@ -135,14 +139,28 @@ export default class Engine {
 		this.mesh["earth"] = earth.setScale(20);
 		this.myriahedral = m;
 
+		const m1 = new Myriahedral().myriahedron({
+			geometry: TetrahedronGeometry,
+			subdivisions: 5,
+			unfold: true,
+			normalize: true,
+		});
+		m1.unfold(this.unfoldScale/90);
+		const data1 = m1.getMeshData();
+		this.buildUnfoldingOutline(data1);
+		const earth1 = new Mesh().from(this, {
+			...data1,
+			material: Material.TextureNoLight(this.getTexture("earth"), .6),
+			cullDisabled: true,
+		}, 1);
+		this.mesh["earth1"] = earth1.setScale(20).setPosition(-150,0,0);
+
 		this.currentCamera.setup(
 			[0, 30, -50],
 			[0, 0, 1],
 			[0, 1, 0]);
 
 		this.currentCamera.lookAt(0,0,0);
-
-
 		this.light["sun"] = Light.Directional({
 			ambient: [.1, .1, .1],
 			diffuse: [.5, .5, .5],
@@ -198,7 +216,7 @@ export default class Engine {
 			centers.push((v0z + v1z + v2z) / 3);
 		}
 		const indices: number[] = [];
-		data.folds.forEach((fold, i) => {
+		data.folds.forEach(fold => {
 			indices.push(fold.f0);
 			indices.push(fold.f1);
 		});
@@ -383,6 +401,7 @@ export default class Engine {
 
 		this.updateInstancingMatrices();
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
+		this.mesh["earth1"].render(this);
 		this.mesh["earth"].render(this);
 		(this.mesh["earth"] as Mesh).euler(this.exy, this.exz, this.eyz);
 		(this.mesh["outline"] as Mesh).euler(this.exy, this.exz, this.eyz);
