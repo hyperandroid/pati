@@ -7,6 +7,19 @@ enum QuadDirection {
   Down,
 }
 
+export enum GraticuleType {
+  Cylindrical,
+  Conical,
+  Azimutal,
+  AzimutalTwoHemispheres,
+  Polyconical
+}
+
+export interface GraticuleParams {
+  type: GraticuleType;
+  parallels: number;
+}
+
 export class Graticule {
 
   vertices: Vertex[] = [];
@@ -23,7 +36,7 @@ export class Graticule {
   build() {
     this.buildVerticesAndFaces();
     this.setEdgesFaceIndices();
-    this.connectGraticulePolyconical();
+    this.connectGraticuleAzimutalTwoHemispheres();
     this.filterOutInvalidFaces();
     return this;
   }
@@ -34,27 +47,63 @@ export class Graticule {
     });
   }
 
-  private connectGraticule() {
-    this.startFoldsConnections(0, 0);
+  private connectGraticuleCylindrical() {
+    this.connectGraticuleCylindricalOrConical((this.parallels / 2) | 0, this.parallels);
+  }
 
-    for (let i = 0; i < 2*this.parallels - 1; i++) {
-      this.connectQuadByDirection(0, i, QuadDirection.Right);
-      this.connectQuadByDirection(this.parallels-1, i, QuadDirection.Right);
+  private connectGraticuleConical() {
+    this.connectGraticuleCylindricalOrConical((this.parallels / 3) | 0, this.parallels);
+  }
+
+  private connectGraticuleCylindricalOrConical(row: number, col: number ) {
+
+
+    this.startFoldsConnections(row, col);
+
+    for (let j = 0; j <= this.parallels; j++) {
+      this.connectQuadByDirection(row, col-j, QuadDirection.Left);
+      this.connectQuadByDirection(row, col+j, QuadDirection.Right);
     }
 
-    for (let i = 0; i < this.parallels/2; i++) {
+    for (let i = 0; i < row; i++) {
       for (let j = 0; j < this.parallels * 2; j++) {
-        if (i < this.parallels/2 - 1) {
-          this.connectQuadByDirection(i, j, QuadDirection.Down);
-        }
+        this.connectQuadByDirection(row - i, j, QuadDirection.Top);
+      }
+    }
 
-        this.connectQuadByDirection(this.parallels/2 + i, j, QuadDirection.Down);
+    const t1 = this.parallels - row;
+    for (let i = 0; i < t1; i++) {
+      for (let j = 0; j < this.parallels * 2; j++) {
+        this.connectQuadByDirection( row + i, j, QuadDirection.Down);
+      }
+    }
+
+    this.root.parent = null;
+  }
+
+  private connectGraticuleAzimutalTwoHemispheres() {
+    const mid = (this.parallels / 2)|0;
+
+    this.startFoldsConnections(mid, 0);
+
+    for (let i = 0; i < 2 * this.parallels - 1; i++) {
+      this.connectQuadByDirection(0, i, QuadDirection.Right);
+      this.connectQuadByDirection(this.parallels - 1, i, QuadDirection.Right);
+    }
+
+    for (let i = 0; i < mid; i++) {
+      for (let j = 0; j < this.parallels * 2; j++) {
+        this.connectQuadByDirection(mid - i - 1, j, QuadDirection.Top);
+        this.connectQuadByDirection( mid + i, j, QuadDirection.Down);
       }
     }
 
     for (let j = 0; j < this.parallels * 2; j++) {
-        this.connectQuadByDirection(this.parallels / 2 - 1, 0, QuadDirection.Down);
+      this.connectQuad(mid, j);
+      this.connectQuad(mid - 1, j);
     }
+
+    this.connectQuadByDirection(mid, 0, QuadDirection.Top);
 
     this.root.parent = null;
   }
@@ -63,12 +112,12 @@ export class Graticule {
     this.startFoldsConnections(0, 0);
 
     // horizontal first row
-    for (let i = 0; i < 2*this.parallels - 1; i++) {
+    for (let i = 0; i < 2 * this.parallels - 1; i++) {
       this.connectQuadByDirection(0, i, QuadDirection.Right);
     }
 
-    for (let i = 0; i < this.parallels-1; i++) {
-      for (let j = 0; j < this.parallels*2; j++) {
+    for (let i = 0; i < this.parallels - 1; i++) {
+      for (let j = 0; j < this.parallels * 2; j++) {
         this.connectQuadByDirection(i, j, QuadDirection.Down);
       }
     }
@@ -83,13 +132,18 @@ export class Graticule {
       this.connectQuadByDirection(i, this.parallels, QuadDirection.Down);
     }
 
-    for (let i = 0; i < this.parallels; i++) {
+    for (let i = 1; i < this.parallels-1; i++) {
       for (let j = this.parallels; j > 0; j--) {
         this.connectQuadByDirection(i, j, QuadDirection.Left);
       }
       for (let j = this.parallels; j < 2 * this.parallels - 1; j++) {
         this.connectQuadByDirection(i, j, QuadDirection.Right);
       }
+    }
+
+    for (let i = 0; i < this.parallels*2 - 1; i++) {
+      this.connectQuadByDirection(0, i, QuadDirection.Right);
+      this.connectQuadByDirection(this.parallels - 1, i, QuadDirection.Right);
     }
 
   }
@@ -102,27 +156,55 @@ export class Graticule {
     this.root = this.connectQuad(row, column);
   }
 
-  private getQuadCommonEdge(row: number, column: number) {
+  private getQuadCommonEdge(row: number, column: number): Edge {
     const o = this.faceIndexForQuadAt(row, column);
     return this.faces.get(o).edges[2];
   }
 
-  private getQuadRightEdge(row: number, column: number) {
+  private getTriangleEdge(row: number, column: number, inc: number): Edge {
+
+    let e: Edge;
+
+    if (row===0) {
+
+      const o = this.faceIndexForQuadAt(row, column) + 1;
+      e = this.faces.get(o).edges[0];
+      e.faceIndices[1] = o + inc;
+
+    } else if (row===this.parallels-1) {
+
+      const o = this.faceIndexForQuadAt(row, column) ;
+      e = this.faces.get(o).edges[1];
+      e.faceIndices[1] = o + inc;
+    }
+
+    return e;
+  }
+
+  private getTriangleRightEdge(row: number, column: number): Edge {
+    return this.getTriangleEdge(row, column, 2);
+  }
+
+  private getTriangleLeftEdge(row: number, column: number): Edge {
+    return this.getTriangleEdge(row, column, -2);
+  }
+
+  private getQuadRightEdge(row: number, column: number): Edge {
     const o = this.faceIndexForQuadAt(row, column);
     return this.faces.get(o).edges[1];
   }
 
-  private getQuadTopEdge(row: number, column: number) {
+  private getQuadTopEdge(row: number, column: number): Edge {
     const o = this.faceIndexForQuadAt(row, column);
     return this.faces.get(o).edges[0];
   }
 
-  private getQuadBottomEdge(row: number, column: number) {
+  private getQuadBottomEdge(row: number, column: number): Edge {
     const o = this.faceIndexForQuadAt(row, column, QuadDirection.Down);
     return this.faces.get(o).edges[1];
   }
 
-  private getQuadLeftEdge(row: number, column: number) {
+  private getQuadLeftEdge(row: number, column: number): Edge {
     const o = this.faceIndexForQuadAt(row, column, QuadDirection.Left);
     return this.faces.get(o).edges[2];
   }
@@ -151,6 +233,10 @@ export class Graticule {
     return undefined;
   }
 
+  private rowWithQuads(r: number): boolean {
+    return r > 0 && r < this.parallels - 1;
+  }
+
   private foldByDirection(row: number, column: number, d: QuadDirection): FacesEdge {
 
     let r: FacesEdge;
@@ -159,36 +245,48 @@ export class Graticule {
     switch (d) {
       case QuadDirection.Left:
         if (column > 0) {
-          nq = this.connectQuad(row, column - 1);
-          r = new FacesEdge(this.getQuadLeftEdge(row, column));
+          if (this.rowWithQuads(row)) {
+            nq = this.connectQuad(row, column - 1);
+            r = new FacesEdge(this.getQuadLeftEdge(row, column));
+          } else {
+            r = new FacesEdge(this.getTriangleLeftEdge(row, column));
+          }
         }
         break;
       case QuadDirection.Right:
         if (column < 2 * this.parallels - 1) {
-          nq = this.connectQuad(row, column + 1);
-          r = new FacesEdge(this.getQuadRightEdge(row, column));
+          if (this.rowWithQuads(row)) {
+            nq = this.connectQuad(row, column + 1);
+            r = new FacesEdge(this.getQuadRightEdge(row, column));
+          } else {
+            r = new FacesEdge(this.getTriangleRightEdge(row, column));
+          }
         }
         break;
       case QuadDirection.Top:
         if (row > 0) {
-          nq = this.connectQuad(row - 1, column);
+          if (this.rowWithQuads(row-1)) {
+            nq = this.connectQuad(row - 1, column);
+          }
           r = new FacesEdge(this.getQuadTopEdge(row, column));
         }
         break;
       case QuadDirection.Down:
         if (row < this.parallels - 1) {
-          nq = this.connectQuad(row + 1, column);
+          if (this.rowWithQuads(row+1)) {
+            nq = this.connectQuad(row + 1, column);
+          }
           r = new FacesEdge(this.getQuadBottomEdge(row, column));
         }
         break;
     }
 
     if (r) {
-      r.parent = this.connectedQuads.get(row, column)
-      if (!nq.parent) {
+      r.parent = this.connectedQuads.get(row, column);
+      if (nq && !nq.parent) {
         nq.parent = r;
       } else {
-        console.error(`quad fold with parent`);
+        // console.error(`quad fold with parent`);
       }
     }
 

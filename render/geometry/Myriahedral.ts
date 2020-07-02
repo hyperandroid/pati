@@ -40,7 +40,7 @@ export class Vertex {
 		return this.x*o.x + this.y*o.y + this.z*o.z;
 	}
 
-	clone() {
+	clone(): Vertex {
 		const v = new Vertex(this.x, this.y, this.z);
 		v.index = this.index;
 		return v;
@@ -50,6 +50,12 @@ export class Vertex {
 		this.x = o.x;
 		this.y = o.y;
 		this.z = o.z;
+	}
+
+	equals(o: Vertex): boolean {
+		return Math.abs(this.x - o.x) < 1e-9 &&
+			Math.abs(this.y - o.y) < 1e-9 &&
+			Math.abs(this.z - o.z) < 1e-9;
 	}
 
 	static normalForVertices(v: Vertex[]): number[] {
@@ -273,7 +279,7 @@ export default class Myriahedral {
 
 	graticule() {
 
-		const gr = new Graticule(32).build();
+		const gr = new Graticule(25).build();
 
 		this.vertex = gr.vertices;
 		this.facesInfo = gr.faces;
@@ -902,6 +908,18 @@ export default class Myriahedral {
 		fold.commonAxisVertices = rotationEdgeVerticesIndices.map(v => {
 			return fi0.vertices[fi0.prevVerticesIndices.indexOf(v)];
 		});
+
+		// not the same vertices indices. Graticule uses an ad-hoc triangle pairing process,
+		// and this might not work as expected. Check for diff points.
+		if (fold.commonAxisVertices.length!==2) {
+
+			const common = fi0.vertices.filter(v => {
+				return fi1.vertices.find(v0 => v0.equals(v));
+			});
+
+			fold.commonAxisVertices = common;
+		}
+
 	}
 
 	private unfoldProcess(scale: number) {
