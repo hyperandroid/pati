@@ -15,10 +15,30 @@ import Surface from "./Surface";
 import Mesh from "./Mesh";
 import Light, {PointLight} from "./Light";
 import Myriahedral, {GeometryInfoIndexed} from "./geometry/Myriahedral";
-import {IcosahedronGeometry, TetrahedronGeometry} from "./geometry/Solids";
+import {
+	CubeGeometry,
+	IcosahedronGeometry,
+	MyriahedronGeometry,
+	OctahedronGeometry,
+	TetrahedronGeometry
+} from "./geometry/Solids";
+import {GraticuleParams, GraticuleType} from "./geometry/Graticule";
 
+const MaxUnfoldScale = 90;
 const N = 64;
 let pos = 0;
+
+interface GraticuleData {
+	mesh: Mesh;
+	myriahedral: Myriahedral;
+
+	outline?: Mesh;
+	normals?: Mesh;
+	foldPoints?: Mesh;
+	foldLines?: Mesh;
+	cutPoints?: Mesh;
+	cutLines?: Mesh;
+}
 
 export default class Engine {
 
@@ -48,7 +68,7 @@ export default class Engine {
 	exz = 0;
 	eyz = 0;
 
-	unfoldScale = 90;
+	unfoldScale = 0;
 	myriahedral: Myriahedral;
 
 	normals = false;
@@ -71,6 +91,7 @@ export default class Engine {
 		const gl = this.gl;
 
 		this.currentCamera = new Camera();
+
 		this.camera["camera0"] = this.currentCamera;
 
 		this.shader["null"] = new NullShader(gl);
@@ -112,60 +133,22 @@ export default class Engine {
 			Material.Texture(this.surface["surface0"].texture, this.surface["surface0"].texture, .2, 32), false, N*N);
 		this.mesh["skybox"] = new Cube(this, Material.Skybox(this.getTexture("cubemap")), true);
 
-		// const m2 = new Myriahedral().myriahedron({
-		// 	geometry: TetrahedronGeometry,
-		// 	subdivisions: 5,
-		// 	unfold: false,
-		// });
-		const m2 = new Myriahedral().graticule();
-		const data2 = m2.getMeshData();
-		this.buildFoldsCutsLines(data2, true, 20, 20.5);
-		// const moon = new Mesh().from(this, {
-		// 	...data2,
-		// 	material: Material.Texture(this.getTexture("jupiter"),this.getTexture("jupiter"), .2, 8),
-		// 	cullDisabled: false,
-		// }, 1);
-		// this.mesh["moon"] = moon.setScale(5);
-
-		const m = new Myriahedral().graticule();
-		m.unfold(this.unfoldScale/90);
-		const data = m.getMeshData();
-		this.buildUnfoldingOutline(data);
-		const earth = new Mesh().from(this, {
-			...data,
-			material: Material.TextureNoLight(this.getTexture("earth"), .6),
-			cullDisabled: true,
-		}, 1);
-		this.mesh["earth"] = earth.setScale(20);
-		this.myriahedral = m;
-
-		const m1 = new Myriahedral().myriahedron({
-			geometry: TetrahedronGeometry,
-			subdivisions: 5,
-			unfold: true,
-			normalize: true,
-		});
-		m1.unfold(this.unfoldScale/90);
-		const data1 = m1.getMeshData();
-		this.buildUnfoldingOutline(data1);
-		const earth1 = new Mesh().from(this, {
-			...data1,
-			material: Material.TextureNoLight(this.getTexture("earth"), .6),
-			cullDisabled: true,
-		}, 1);
-		this.mesh["earth1"] = earth1.setScale(20).setPosition(-150,0,0);
+		this.buildGraticules();
+		this.buildMyriahedrons();
+		this.nextGraticule();
 
 		this.currentCamera.setup(
-			[0, 30, -50],
-			[0, 0, 1],
-			[0, 1, 0]);
+			[-116.15988159179688, 6.677720546722412, -5.870321273803711],
+			[0.9977958798408508, -0.016972756013274193, 0.06415063887834549],
+			[0,1,0]
+		);
 
 		this.currentCamera.lookAt(0,0,0);
 		this.light["sun"] = Light.Directional({
 			ambient: [.1, .1, .1],
 			diffuse: [.5, .5, .5],
 			specular: [1, 1, 1],
-			direction: [0, -1, -1]
+			direction: [0, -1, 1]
 		});
 
 		this.light["point"] = Light.Point({
@@ -191,7 +174,7 @@ export default class Engine {
 		});
 	}
 
-	private buildFoldsCutsLines(data: GeometryInfoIndexed, showCuts: boolean, s1: number, s2: number) {
+	private buildFoldsCutsLines(data: GeometryInfoIndexed, s1: number, s2: number, gd: GraticuleData) {
 
 		const gl = this.gl;
 
@@ -221,28 +204,29 @@ export default class Engine {
 			indices.push(fold.f1);
 		});
 
-		const mc = Material.Color(new Float32Array([1, 0, 1, 1]));
-		mc.renderMode = gl.POINTS;
-		this.mesh["folds"] = new Mesh().from(this, {
-			material: mc,
-			index: new Uint16Array(indices),
-			vertices: new Float32Array(centers),
-			cullDisabled: true,
-			uv: null,
-			normals: null,
-		}, 1).setScale(s2);
+		if (this.folds) {
+			const mc = Material.Color(new Float32Array([1, 0, 1, 1]));
+			mc.renderMode = gl.POINTS;
+			gd.foldPoints = new Mesh().from(this, {
+				material: mc,
+				index: new Uint16Array(indices),
+				vertices: new Float32Array(centers),
+				cullDisabled: true,
+				uv: null,
+				normals: null,
+			}, 1).setScale(s2);
 
-		const mc2 = Material.Color(new Float32Array([1, 0, 1, 1]));
-		mc2.renderMode = gl.LINES;
-		this.mesh["folds2"] = new Mesh().from(this, {
-			material: mc2,
-			index: new Uint16Array(indices),
-			vertices: new Float32Array(centers),
-			cullDisabled: true,
-			uv: null,
-			normals: null,
-		}, 1).setScale(s2);
-
+			const mc2 = Material.Color(new Float32Array([1, 0, 1, 1]));
+			mc2.renderMode = gl.LINES;
+			gd.foldLines = new Mesh().from(this, {
+				material: mc2,
+				index: new Uint16Array(indices),
+				vertices: new Float32Array(centers),
+				cullDisabled: true,
+				uv: null,
+				normals: null,
+			}, 1).setScale(s2);
+		}
 
 		/// cuts
 		const indicescut: number[] = [];
@@ -251,10 +235,10 @@ export default class Engine {
 			indicescut.push(cut.vertex1);
 		});
 
-		if (showCuts) {
+		if (this.cuts) {
 			const mc3 = Material.Color(new Float32Array([0, 1, 1, 1]));
 			mc3.renderMode = gl.LINES;
-			this.mesh["cuts"] = new Mesh().from(this, {
+			gd.cutLines = new Mesh().from(this, {
 				material: mc3,
 				index: new Uint16Array(indicescut),
 				vertices: new Float32Array(data.vertices),
@@ -265,7 +249,7 @@ export default class Engine {
 
 			const mc4 = Material.Color(new Float32Array([0, 1, 1, 1]));
 			mc4.renderMode = gl.POINTS;
-			this.mesh["cuts2"] = new Mesh().from(this, {
+			gd.cutPoints = new Mesh().from(this, {
 				material: mc4,
 				index: new Uint16Array(indicescut),
 				vertices: new Float32Array(data.vertices),
@@ -276,43 +260,44 @@ export default class Engine {
 		}
 		/*****/
 
-		/// normals
-		const normals: number[] = [];
-		const indicesnormals: number[] = [];
-		let indexnormals = 0;
-		for (let i = 0; i < data.index.length; i += 3) {
-			const x0 = data.vertices[data.index[i + 1] * 3] -     data.vertices[data.index[i ] * 3];
-			const y0 = data.vertices[data.index[i + 1] * 3 + 1] - data.vertices[data.index[i ] * 3 + 1];
-			const z0 = data.vertices[data.index[i + 1] * 3 + 2] - data.vertices[data.index[i ] * 3 + 2];
+		if (this.normals) {
+			/// normals
+			const normals: number[] = [];
+			const indicesnormals: number[] = [];
+			let indexnormals = 0;
+			for (let i = 0; i < data.index.length; i += 3) {
+				const x0 = data.vertices[data.index[i + 1] * 3] - data.vertices[data.index[i] * 3];
+				const y0 = data.vertices[data.index[i + 1] * 3 + 1] - data.vertices[data.index[i] * 3 + 1];
+				const z0 = data.vertices[data.index[i + 1] * 3 + 2] - data.vertices[data.index[i] * 3 + 2];
 
-			const x1 = data.vertices[data.index[i + 2] * 3] -     data.vertices[data.index[i ] * 3];
-			const y1 = data.vertices[data.index[i + 2] * 3 + 1] - data.vertices[data.index[i ] * 3 + 1];
-			const z1 = data.vertices[data.index[i + 2] * 3 + 2] - data.vertices[data.index[i ] * 3 + 2];
+				const x1 = data.vertices[data.index[i + 2] * 3] - data.vertices[data.index[i] * 3];
+				const y1 = data.vertices[data.index[i + 2] * 3 + 1] - data.vertices[data.index[i] * 3 + 1];
+				const z1 = data.vertices[data.index[i + 2] * 3 + 2] - data.vertices[data.index[i] * 3 + 2];
 
-			const x = y0 * z1 - z0 * y1;
-			const y = z0 * x1 - x0 * z1;
-			const z = x0 * y1 - y0 * x1;
+				const x = y0 * z1 - z0 * y1;
+				const y = z0 * x1 - x0 * z1;
+				const z = x0 * y1 - y0 * x1;
 
-			let l = Math.sqrt(x * x + y * y + z * z);
-			normals.push(x / l, y / l, z / l);
-			const f = 1.1;
-			normals.push(x / l * f, y / l * f, z / l * f);
+				let l = Math.sqrt(x * x + y * y + z * z);
+				normals.push(x / l, y / l, z / l);
+				const f = 1.1;
+				normals.push(x / l * f, y / l * f, z / l * f);
 
-			indicesnormals.push(indexnormals++);
-			indicesnormals.push(indexnormals++);
+				indicesnormals.push(indexnormals++);
+				indicesnormals.push(indexnormals++);
+			}
+
+			const matnormals = Material.Color(new Float32Array([1, 1, 1, 1]));
+			matnormals.renderMode = gl.LINES;
+			gd.normals = new Mesh().from(this, {
+				material: matnormals,
+				index: new Uint16Array(indicesnormals),
+				vertices: new Float32Array(normals),
+				cullDisabled: true,
+				uv: null,
+				normals: null,
+			}, 1).setScale(s1);
 		}
-
-		const matnormals = Material.Color(new Float32Array([1, 1, 1, 1]));
-		matnormals.renderMode = gl.LINES;
-		this.mesh["normals"] = new Mesh().from(this, {
-			material: matnormals,
-			index: new Uint16Array(indicesnormals),
-			vertices: new Float32Array(normals),
-			cullDisabled: true,
-			uv: null,
-			normals: null,
-		}, 1).setScale(s1);
-
 	}
 
 	resize(w: number, h: number, force?: boolean) {
@@ -373,22 +358,14 @@ export default class Engine {
 
 	render(delta: number) {
 
-		this.surface["surface0"].enableAsTextureTarget(this);
-		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-
-		// this.currentCamera = this.camera["camera1"];
-		// this.currentCamera.sync();
-		// const u = this.time/1777;
-		// Vector3.set(this.currentCamera.position,
-		// 	13*Math.sin(u),
-		// 	Math.sin(u)/3,
-		// 	13*Math.cos(u));
-		// this.currentCamera.lookAt(-this.currentCamera.position[0],0,-this.currentCamera.position[2]);
-
-		this.mesh["cube2"].render(this);
-		this.mesh["skybox"].render(this);
-
-		this.surface["surface0"].disableAsTextureTarget(this);
+		// cubemap ambient
+		// this.surface["surface0"].enableAsTextureTarget(this);
+		// this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		//
+		// this.mesh["cube2"].render(this);
+		// this.mesh["skybox"].render(this);
+		//
+		// this.surface["surface0"].disableAsTextureTarget(this);
 
 		const gl = this.gl;
 
@@ -401,17 +378,40 @@ export default class Engine {
 
 		this.updateInstancingMatrices();
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
-		this.mesh["earth1"].render(this);
-		this.mesh["earth"].render(this);
-		(this.mesh["earth"] as Mesh).euler(this.exy, this.exz, this.eyz);
-		(this.mesh["outline"] as Mesh).euler(this.exy, this.exz, this.eyz);
+
+		const light = this.light['point'] as PointLight;
+		light.setPosition(100,50,40);
+
+		const cg = this.currentGraticule;
+		cg.mesh.euler(this.exy, this.exz, this.eyz);
+		cg.outline?.euler(this.exy, this.exz, this.eyz);
+		cg.normals?.euler(this.exy, this.exz, this.eyz);
+		cg.cutLines?.euler(this.exy, this.exz, this.eyz);
+		cg.cutPoints?.euler(this.exy, this.exz, this.eyz);
+		cg.foldLines?.euler(this.exy, this.exz, this.eyz);
+		cg.foldPoints?.euler(this.exy, this.exz, this.eyz);
+
+		cg.mesh.render(this);
+		if (this.outline) {
+			cg.outline?.render(this);
+		}
+		if (this.normals) {
+			cg.normals?.render(this);
+		}
+		if (this.cuts) {
+			cg.cutLines?.render(this);
+			cg.cutPoints?.render(this);
+		}
+		if (this.folds) {
+			cg.foldLines?.render(this);
+			cg.foldPoints?.render(this);
+		}
 
 		// const moon = this.mesh["moon"];
 		// (moon as Mesh).euler(0, (this.time%25000)/25000*2*Math.PI, 0 );
 		// moon.render(this);
 
-		const light = this.light['point'] as PointLight;
-		light.setPosition(100,50,40);
+
 		// light.setPosition(
 		// 	25*Math.cos((this.time%15000)/15000*2*Math.PI),
 		// 	5,
@@ -422,23 +422,6 @@ export default class Engine {
 		(this.mesh["lightprobe"] as Mesh).getMaterial().definition.color.set(light.getDiffuse());
 		const lp = this.mesh["lightprobe"];
 		lp.render(this);
-
-		if (this.folds) {
-			this.mesh["folds"]?.render(this);
-			this.mesh["folds2"]?.render(this);
-		}
-		if (this.cuts) {
-			this.mesh["cuts"]?.render(this);
-			this.mesh["cuts2"]?.render(this);
-		}
-
-		if (this.normals) {
-			this.mesh["normals"]?.render(this);
-		}
-
-		if (this.outline) {
-			this.mesh['outline']?.render(this);
-		}
 
 		this.mesh["skybox"].render(this);
 		// const p = light.getPosition();
@@ -489,41 +472,31 @@ export default class Engine {
 		this.camera["camera0"].sync();
 	}
 
-	unfold() {
-		this.myriahedral.unfold(this.unfoldScale/90);
-		const data = this.myriahedral.getMeshData();
-		(this.mesh['earth'] as Mesh).remesh(this, data.vertices, data.uv);
-		this.updateUnfoldingOutline(data);
-	}
-
 	updateUnfoldingOutline(data: GeometryInfoIndexed) {
-		(this.mesh['outline'] as Mesh).remesh(this, data.vertices, data.uv);
+		this.currentGraticule?.outline?.remesh(this, data.vertices, data.uv);
 	}
 
-	buildUnfoldingOutline(data: GeometryInfoIndexed) {
+	buildUnfoldingOutline(data: GeometryInfoIndexed): Mesh {
 
 		const gl = this.gl;
 		const indices: number[] = [];
 
 		for(let i = 0; i < data.index.length; i+=3) {
-		// for(let i = 0; i < data.index.length; i+=3) {
-		// 	if (wrongIds.indexOf(i/3)!==-1) {
-				indices.push(data.index[i], data.index[i + 1]);
-				indices.push(data.index[i + 1], data.index[i + 2]);
-				indices.push(data.index[i + 2], data.index[i]);
-			// }
+			indices.push(data.index[i], data.index[i + 1]);
+			indices.push(data.index[i + 1], data.index[i + 2]);
+			indices.push(data.index[i + 2], data.index[i]);
 		}
 
 		const mc = Material.Color(new Float32Array([1, 1, 1, 1]));
 		mc.renderMode = gl.LINES;
-		this.mesh["outline"] = new Mesh().from(this, {
+		return new Mesh().from(this, {
 			material: mc,
 			index: new Uint16Array(indices),
 			vertices: data.vertices,
 			cullDisabled: true,
 			uv: null,
 			normals: null,
-		}, 1).setScale(20);
+		}, 1).setScale(30.2);
 	}
 
 	longitude = 0;
@@ -552,43 +525,19 @@ export default class Engine {
 				c.upAmount = down ? 1 : 0;
 				break;
 
-			case 'n':
-				if (!down) {
-
-
-					this.start += 3;
-					const dd = this.myriahedral.getMeshData();
-					this.start %= dd.index.length;
-					console.log(this.myriahedral.facesInfo.get(this.start/3));
-					this.buildUnfoldingOutline(dd);
-				}
-				break;
-				case 'm':
-				if (!down) {
-
-
-					const dd = this.myriahedral.getMeshData();
-					this.start -= 3;
-					this.start %= dd.index.length;
-					console.log(this.myriahedral.facesInfo.get(this.start/3));
-					this.buildUnfoldingOutline(dd);
-				}
-				break;
-
-
 			case 'j':
 				this.exz += Math.PI/90;
 				break;
 			case 'l':
 				this.exz -= Math.PI/90;
 				break;
-			case 'i':
+			case 'o':
 				this.exy -= Math.PI/90;
 				break;
 			case 'k':
 				this.exy += Math.PI/90;
 				break;
-			case 'u':
+			case 'i':
 				this.eyz -= Math.PI/90;
 				break;
 			case 'p':
@@ -600,7 +549,7 @@ export default class Engine {
 					if (this.unfoldScale > 90) {
 						this.unfoldScale = 90;
 					} else {
-						this.unfold();
+						this.unfoldImpl();
 					}
 				break;
 			case '2':
@@ -608,29 +557,33 @@ export default class Engine {
 					if (this.unfoldScale < 0) {
 						this.unfoldScale = 0;
 					} else {
-						this.unfold();
+						this.unfoldImpl();
 					}
 				break;
 
 			case '0':
 				if (!down) {
 					this.normals = !this.normals;
+					this.foldsCutsInfo();
 				}
 				break;
 			case '8':
 				if (!down) {
 					this.folds = !this.folds;
+					this.foldsCutsInfo();
 				}
 				break;
 			case '9':
 				if (!down) {
 					this.cuts = !this.cuts;
+					this.foldsCutsInfo();
 				}
 				break;
 
 			case '3':
 				if (!down) {
 					this.outline = !this.outline;
+					this.foldsCutsInfo();
 				}
 				break;
 
@@ -640,7 +593,7 @@ export default class Engine {
 				this.longitude++;
 				this.myriahedral.uv = this.myriahedral.calculateUV(this.longitude / 180 * Math.PI, this.latitude/180*Math.PI);
 				const data = this.myriahedral.getMeshData();
-				(this.mesh['earth'] as Mesh).remesh(this, data.vertices, data.uv);
+				this.currentGraticule?.mesh.remesh(this, data.vertices, data.uv);
 			}
 				// }
 				break;
@@ -650,11 +603,188 @@ export default class Engine {
 				this.latitude++;
 				this.myriahedral.uv = this.myriahedral.calculateUV(this.longitude / 180 * Math.PI, this.latitude/180*Math.PI);
 				const data = this.myriahedral.getMeshData();
-				(this.mesh['earth'] as Mesh).remesh(this, data.vertices, data.uv);
+				this.currentGraticule?.mesh.remesh(this, data.vertices, data.uv);
 			}
 				// }
+				break;
+
+			case 'f':
+				if (!down) {
+					this.fold(() => {
+						console.log('folded');
+					});
+				}
+				break;
+			case 'u':
+				if (!down) {
+					this.unfold(() => {
+						console.log('unfolded');
+					});
+				}
+				break;
+			case 'g':
+				if (!down) {
+					this.nextGraticule();
+				}
 				break;
 		}
 	}
 
+	private graticules: GraticuleData[] = [];
+	private currentGraticuleIndex = 0;
+	private currentGraticule: GraticuleData;
+
+	private buildGraticules() {
+		[
+			{
+				type: GraticuleType.Cylindrical,
+				parallels: 25,
+			},
+			{
+				type: GraticuleType.Conical,
+			},
+			{
+				type: GraticuleType.Azimutal,
+			},
+			{
+				type: GraticuleType.AzimutalTwoHemispheres,
+			},
+			{
+				type: GraticuleType.Polyconical,
+			},
+		].forEach(p => {
+			this.buildGraticule(p);
+		});
+	}
+
+	private buildGraticule(p: GraticuleParams) {
+
+		// const m2 = new Myriahedral().graticule(p);
+		// const data2 = m2.getMeshData();
+		// this.buildFoldsCutsLines(data2, true, 20, 20.5);
+
+		const myriahedral = new Myriahedral().graticule(p);
+		const data = myriahedral.getMeshData();
+
+		const outline = this.buildUnfoldingOutline(data);
+		const mesh = new Mesh().from(this, {
+			...data,
+			material: Material.TextureNoLight(this.getTexture("earth"), .6),
+			cullDisabled: true,
+		}, 1).setScale(30);
+
+		const gr = {
+			mesh,
+			myriahedral,
+			outline,
+		};
+
+		this.buildFoldsCutsLines(data,30, 30.5, gr);
+		this.graticules.push(gr);
+	}
+
+	private buildMyriahedrons() {
+		[
+			TetrahedronGeometry,
+			CubeGeometry,
+			OctahedronGeometry,
+			IcosahedronGeometry
+		].forEach( g => {
+			this.buildMyriahedron(g);
+		});
+	}
+
+	private buildMyriahedron(geometry: MyriahedronGeometry) {
+
+		const myriahedral = new Myriahedral().myriahedron({
+			geometry,
+			subdivisions: 5,
+			unfold: true,
+			normalize: true,
+		});
+
+		const data1 = myriahedral.getMeshData();
+		const outline = this.buildUnfoldingOutline(data1);
+		const mesh = new Mesh().from(this, {
+			...data1,
+			material: Material.TextureNoLight(this.getTexture("earth"), .6),
+			cullDisabled: true,
+		}, 1);
+
+		mesh.setScale(30);
+		this.graticules.push({
+			mesh,
+			myriahedral,
+			outline,
+		});
+	}
+
+	private nextGraticule() {
+
+		this.fold(() => {
+
+			const graticule = this.graticules[this.currentGraticuleIndex];
+			this.currentGraticule = graticule;
+			this.currentGraticuleIndex = (this.currentGraticuleIndex + 1) % this.graticules.length;
+
+			this.myriahedral = graticule.myriahedral;
+
+			this.unfold(() => {
+				console.log('unfolded');
+			});
+
+		});
+	}
+
+	private unfold(onUnfoldFinished: () => void) {
+		if (this.myriahedral && this.unfoldScale<MaxUnfoldScale) {
+			requestAnimationFrame(this.unfoldAnimation.bind(this, onUnfoldFinished));
+		} else {
+			onUnfoldFinished();
+		}
+	}
+
+	private unfoldAnimation(onUnfoldFinished: () => void) {
+		this.unfoldScale++;
+		this.unfoldImpl();
+		if (this.unfoldScale < MaxUnfoldScale) {
+			requestAnimationFrame(this.unfoldAnimation.bind(this, onUnfoldFinished));
+		} else {
+			onUnfoldFinished();
+		}
+	}
+
+	private fold(onFoldFinished: () => void) {
+		if (this.myriahedral && this.unfoldScale>0) {
+			requestAnimationFrame(this.foldAnimation.bind(this, onFoldFinished));
+		} else {
+			requestAnimationFrame(onFoldFinished);
+		}
+	}
+
+	private foldAnimation(onFoldFinished: () => void) {
+		this.unfoldScale--;
+		this.unfoldImpl();
+		if (this.unfoldScale > 0) {
+			requestAnimationFrame(this.foldAnimation.bind(this, onFoldFinished));
+		} else {
+			requestAnimationFrame(onFoldFinished);
+		}
+	}
+
+	private unfoldImpl() {
+		this.myriahedral.unfold(this.unfoldScale/MaxUnfoldScale);
+		const data = this.myriahedral.getMeshData();
+		this.currentGraticule?.mesh.remesh(this, data.vertices, data.uv);
+
+		this.foldsCutsInfo();
+	}
+
+	private foldsCutsInfo(data?: GeometryInfoIndexed) {
+		data = data ?? this.currentGraticule?.myriahedral.getMeshData();
+		this.buildFoldsCutsLines(data,30, 30.5, this.currentGraticule);
+		if(this.outline) {
+			this.updateUnfoldingOutline(data);
+		}
+	}
 }

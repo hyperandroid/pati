@@ -44,6 +44,10 @@ export default class Material {
 		this.definition = def;
 	}
 
+	dispose() {
+
+	}
+
 	static Reflective(t: Texture) {
 		return new Material(MaterialType.REFLECTIVE, {
 			diffuse: t,

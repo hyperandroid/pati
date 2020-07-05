@@ -4,7 +4,8 @@ import {IcosahedronGeometry} from "./render/geometry/Solids";
 const m = new Myriahedral().myriahedron({
 	geometry: IcosahedronGeometry,
 	subdivisions: 4,
-	unfold: false,
+	unfold: true,
+	normalize: true,
 });
 
 const data = m.getMeshData();

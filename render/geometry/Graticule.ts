@@ -17,7 +17,8 @@ export enum GraticuleType {
 
 export interface GraticuleParams {
   type: GraticuleType;
-  parallels: number;
+  parallels?: number;
+  uvOffset?: [number, number],
 }
 
 export class Graticule {
@@ -27,18 +28,42 @@ export class Graticule {
   folds: FacesEdge[] = [];
   root: FacesEdge;
 
-  connectedQuads = new MM<FacesEdge>();
+  private parallels = 0;
+  private connectedQuads = new MM<FacesEdge>();
 
-  constructor(readonly parallels: number) {
+  constructor() {
 
   }
 
-  build() {
+  build(p: GraticuleParams) {
+    this.parallels = p.parallels ?? 24;
     this.buildVerticesAndFaces();
     this.setEdgesFaceIndices();
-    this.connectGraticuleAzimutalTwoHemispheres();
+    this.connectGraticule(p.type);
     this.filterOutInvalidFaces();
     return this;
+  }
+
+  private connectGraticule(t: GraticuleType) {
+    switch (t) {
+      case GraticuleType.Azimutal:
+        this.connectGraticuleAzimutal();
+        break;
+      case GraticuleType.AzimutalTwoHemispheres:
+        this.connectGraticuleAzimutalTwoHemispheres();
+        break;
+      case GraticuleType.Conical:
+        this.connectGraticuleConical();
+        break;
+      case GraticuleType.Cylindrical:
+        this.connectGraticuleCylindrical();
+        break;
+      case GraticuleType.Polyconical:
+        this.connectGraticulePolyconical();
+        break;
+      default:
+        throw new Error(`unknown graticule type: ${t}`);
+    }
   }
 
   private filterOutInvalidFaces() {
@@ -84,7 +109,7 @@ export class Graticule {
   private connectGraticuleAzimutalTwoHemispheres() {
     const mid = (this.parallels / 2)|0;
 
-    this.startFoldsConnections(mid, 0);
+    this.startFoldsConnections(mid, this.parallels);
 
     for (let i = 0; i < 2 * this.parallels - 1; i++) {
       this.connectQuadByDirection(0, i, QuadDirection.Right);
@@ -103,7 +128,7 @@ export class Graticule {
       this.connectQuad(mid - 1, j);
     }
 
-    this.connectQuadByDirection(mid, 0, QuadDirection.Top);
+    this.connectQuadByDirection(mid, this.parallels, QuadDirection.Top);
 
     this.root.parent = null;
   }
@@ -126,9 +151,15 @@ export class Graticule {
   }
 
   private connectGraticulePolyconical() {
-    this.startFoldsConnections(0, this.parallels);
+    const row = Math.floor(this.parallels/2);
 
-    for (let i = 0; i < this.parallels - 1; i++) {
+    this.startFoldsConnections(row, this.parallels);
+
+    for (let i = row; i>0; i--) {
+      this.connectQuadByDirection(i, this.parallels, QuadDirection.Top);
+    }
+
+    for (let i = row; i<this.parallels; i++) {
       this.connectQuadByDirection(i, this.parallels, QuadDirection.Down);
     }
 
@@ -145,7 +176,6 @@ export class Graticule {
       this.connectQuadByDirection(0, i, QuadDirection.Right);
       this.connectQuadByDirection(this.parallels - 1, i, QuadDirection.Right);
     }
-
   }
 
   private faceIndexForQuadAt(row: number, column: number, d?: QuadDirection): number {

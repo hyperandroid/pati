@@ -8,6 +8,27 @@ export interface MyriahedronGeometry {
 	faces: FaceType[];
 }
 
+export const OctahedronGeometry: MyriahedronGeometry = {
+	vertices: [
+		[0, 1, 0],
+		[1, 0, 0],
+		[0, 0, -1],
+		[-1, 0, 0],
+		[0, 0, 1],
+		[0, -1, 0]
+	],
+	faces: [
+		[0,1,2],
+		[0,2,3],
+		[0,3,4],
+		[0,4,1],
+		[5,2,1],
+		[5,3,2],
+		[5,4,3],
+		[5,1,4]
+	]
+}
+
 export const TetrahedronGeometry: MyriahedronGeometry = {
 
 	vertices: [

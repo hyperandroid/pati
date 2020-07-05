@@ -1,7 +1,7 @@
 import Vector3 from "../../math/Vector3";
 import Quaternion from "../../math/Quaternion";
 import {EdgeType, FaceType, MyriahedronGeometry} from "./Solids";
-import {Graticule} from "./Graticule";
+import {Graticule, GraticuleParams} from "./Graticule";
 
 export interface GeometryInfoIndexed {
 	vertices: Float32Array;
@@ -242,7 +242,6 @@ export interface FaceInfo {
 	normal: number[];
 }
 
-
 const knn = Vector3.create();
 const knnP0 = Vector3.create();
 const q0 = Quaternion.create();
@@ -252,6 +251,7 @@ export interface MyriahedronParams {
 	subdivisions?: number;
 	unfold?: boolean,		// default true
 	normalize?: boolean,	// default true
+	uvOffset?: [number, number],
 }
 
 export default class Myriahedral {
@@ -277,16 +277,16 @@ export default class Myriahedral {
 
 	}
 
-	graticule() {
+	graticule(p: GraticuleParams) {
 
-		const gr = new Graticule(25).build();
+		const gr = new Graticule().build(p);
 
 		this.vertex = gr.vertices;
 		this.facesInfo = gr.faces;
 		this.foldsMST = gr.folds;
 		this.index = [];
-		gr.faces.forEach( f => {
-			f.vertices.forEach( v => {
+		gr.faces.forEach(f => {
+			f.vertices.forEach(v => {
 				this.index.push(v.index);
 			})
 		});
@@ -309,7 +309,7 @@ export default class Myriahedral {
 
 	myriahedron(p: MyriahedronParams): Myriahedral {
 
-		if (p.unfold===undefined) {
+		if (p.unfold === undefined) {
 			p.unfold = true;
 		}
 
@@ -324,7 +324,7 @@ export default class Myriahedral {
 
 		let tMST = Date.now();
 		this.foldsMST = this.calcMST(this.transformVertEdgesToFaceEdges());
-		console.log(`MST calc time ${Date.now()-tMST}ms.`);
+		console.log(`MST calc time ${Date.now() - tMST}ms.`);
 
 		// FOLDS
 
@@ -369,15 +369,15 @@ export default class Myriahedral {
 
 		const edges: EdgeType[] = [];
 
-		fs.forEach( f => {
+		fs.forEach(f => {
 			for (let i = 0; i < f.length; i++) {
 				edges.push([f[i], f[(i + 1) % f.length]]);
 			}
 		});
 
 		const edgesMap = new MM<EdgeType>();
-		edges.forEach( e => {
-			if (edgesMap.getI(e[0], e[1])===undefined) {
+		edges.forEach(e => {
+			if (edgesMap.getI(e[0], e[1]) === undefined) {
 				edgesMap.insert(e[0], e[1], e);
 			}
 		})
@@ -398,7 +398,7 @@ export default class Myriahedral {
 			this.insertVertex(new Vertex(v[0], v[1], v[2]));
 		})
 
-		if (geometry.edges===undefined) {
+		if (geometry.edges === undefined) {
 			geometry.edges = this.edgesFromFaces(geometry.faces);
 		}
 
@@ -406,13 +406,13 @@ export default class Myriahedral {
 			this.insertEdge(this.vertex[e[0]], this.vertex[e[1]], 0);
 		}
 
-		geometry.faces.forEach( f => this.recurse(1, f[0], f[1], f[2]));
+		geometry.faces.forEach(f => this.recurse(1, f[0], f[1], f[2]));
 
 		if (normalize) {
 			this.normalizeGeometry();
 		}
 
-		console.log(`myriahedron build time ${Date.now()-tbm}ms`);
+		console.log(`myriahedron build time ${Date.now() - tbm}ms`);
 	}
 
 	calcMST(faceEdges: FacesEdge[]): FacesEdge[] {
@@ -432,7 +432,7 @@ export default class Myriahedral {
 		const treeFaces: number[] = [];
 		treeFaces.push(faceEdges[0].edge.faceIndices[0]);
 
-		const treeFacesSet= new Map<number, FacesEdge>();
+		const treeFacesSet = new Map<number, FacesEdge>();
 		treeFacesSet.set(faceEdges[0].edge.faceIndices[0], faceEdges[0]);
 
 		const treeEdges: FacesEdge[] = [];
@@ -497,7 +497,7 @@ export default class Myriahedral {
 
 		let degenerated = 0;
 		this.edges.forEach(edge => {
-			if (edge.faceIndices[0]!==null && edge.faceIndices[1]!==null) {
+			if (edge.faceIndices[0] !== null && edge.faceIndices[1] !== null) {
 				this.faceEdges.insert(
 					edge.faceIndices[0],
 					edge.faceIndices[1],
@@ -541,6 +541,44 @@ export default class Myriahedral {
 		this.originalVertices.forEach((v, i) => {
 			uv[i * 2] = .5 + (ox + Math.atan2(v.x, v.z)) / (2 * Math.PI);
 			uv[i * 2 + 1] = .5 - (oy + Math.asin(v.y)) / Math.PI;
+		});
+
+		// check for extreme uv offsets.
+		this.facesInfo.forEach( (fi,i) => {
+
+			const o0 = fi.vertices[0].index*2;
+			const u0 = uv[o0];
+			const v0 = uv[o0+1];
+			const o1 = fi.vertices[1].index*2;
+			const u1 = uv[o1];
+			const v1 = uv[o1+1];
+			const o2 = fi.vertices[2].index*2;
+			const u2 = uv[o2];
+			const v2 = uv[o2+1];
+
+			if (Math.abs(u0-u1)>.5 || Math.abs(u2-u0)>.5 || Math.abs(u2-u1)>.5) {
+				if (u0 < .5) {
+					uv[o0] += 1;
+				}
+				if (u1 < .5) {
+					uv[o1] += 1;
+				}
+				if (u2 < .5) {
+					uv[o2] += 1;
+				}
+			}
+
+			if (Math.abs(v0-v1)>.5 || Math.abs(v2-v0)>.5 || Math.abs(v2-v1)>.5) {
+				if (v0 < .5) {
+					uv[o0+1] += 1;
+				}
+				if (v1 < .5) {
+					uv[o1+1] += 1;
+				}
+				if (v2 < .5) {
+					uv[o2+1] += 1;
+				}
+			}
 		});
 
 		return uv;
@@ -697,7 +735,7 @@ export default class Myriahedral {
 			}
 		});
 
-		children.forEach( c => {
+		children.forEach(c => {
 			this.buildFoldingTreeImpl(processed, c.toFaceIndex, c);
 			this.buildFoldingTreeImpl(processed, c.fromFaceIndex, c);
 		})
@@ -713,7 +751,7 @@ export default class Myriahedral {
 
 		let c = 0;
 		let inc: any = {};
-		faces.forEach((f,faceIndex) => {
+		faces.forEach((f, faceIndex) => {
 			if (f.length !== 3) {
 				c++;
 				inc[faceIndex] = f;
@@ -740,7 +778,7 @@ export default class Myriahedral {
 				faces.set(f0, ar);
 			}
 
-			if (ar.indexOf(edge)===-1) {
+			if (ar.indexOf(edge) === -1) {
 				ar.push(edge);
 			}
 		}
@@ -852,13 +890,13 @@ export default class Myriahedral {
 		this.foldsMST.forEach(fold => this.setupCommonrotationAxisVertices(fold));
 
 		this.setupGeometry();
-		this.roots.forEach( root => {
+		this.roots.forEach(root => {
 			this.calculateOrientations(root)
 		});
 	}
 
 	private static dot(v0: number[], v1: number[]): number {
-		return v0[0]*v1[0] + v0[1]*v1[1] + v0[2]*v1[2];
+		return v0[0] * v1[0] + v0[1] * v1[1] + v0[2] * v1[2];
 	}
 
 	/**
@@ -892,7 +930,7 @@ export default class Myriahedral {
 		// restore rotated face vertices
 		const f = this.facesInfo.get(node.toFaceIndex);
 		f.vertices.forEach((v, i) => {
-			f.vertices[i].copy( this.originalVertices[v.index] );
+			f.vertices[i].copy(this.originalVertices[v.index]);
 		});
 	}
 
@@ -911,32 +949,31 @@ export default class Myriahedral {
 
 		// not the same vertices indices. Graticule uses an ad-hoc triangle pairing process,
 		// and this might not work as expected. Check for diff points.
-		if (fold.commonAxisVertices.length!==2) {
+		if (fold.commonAxisVertices.length !== 2) {
 
-			const common = fi0.vertices.filter(v => {
+			fold.commonAxisVertices = fi0.vertices.filter(v => {
 				return fi1.vertices.find(v0 => v0.equals(v));
 			});
-
-			fold.commonAxisVertices = common;
 		}
-
 	}
 
 	private unfoldProcess(scale: number) {
 		let t = Date.now();
 		this.roots.forEach(f => this.unfoldImpl(f, scale));
 		t = Date.now() - t;
-		console.log(`unfold vertices took ${t}ms.`);
+		// console.log(`unfold vertices took ${t}ms.`);
 	}
 
 	private setupGeometry() {
-		this.vertex = this.originalVertices.map( v => { return v.clone() } );
-		this.facesInfo.forEach( f => {
-			f.vertices.forEach( (v,i) => {
+		this.vertex = this.originalVertices.map(v => {
+			return v.clone()
+		});
+		this.facesInfo.forEach(f => {
+			f.vertices.forEach((v, i) => {
 				f.vertices[i] = this.vertex[v.index];
 			});
 			f.normal = Vertex.normalForVertices(f.vertices);
-		} );
+		});
 	}
 
 	public unfold(scale: number) {
@@ -972,15 +1009,15 @@ export default class Myriahedral {
 		const N0 = fi0.normal;
 		const N1 = fi1.normal;
 
-		const ac = Math.max(-1, Math.min(1, Myriahedral.dot(N0, N1) ) );
-		let diffAngle =  scale *
+		const ac = Math.max(-1, Math.min(1, Myriahedral.dot(N0, N1)));
+		let diffAngle = scale *
 			Math.acos(ac) *
 			node.orientationMultiplier;
 
 		const rotationEdgeVertices = node.commonAxisVertices;
-		knn[0]= rotationEdgeVertices[1].x - rotationEdgeVertices[0].x;
-		knn[1]= rotationEdgeVertices[1].y - rotationEdgeVertices[0].y;
-		knn[2]= rotationEdgeVertices[1].z - rotationEdgeVertices[0].z;
+		knn[0] = rotationEdgeVertices[1].x - rotationEdgeVertices[0].x;
+		knn[1] = rotationEdgeVertices[1].y - rotationEdgeVertices[0].y;
+		knn[2] = rotationEdgeVertices[1].z - rotationEdgeVertices[0].z;
 		const e = Vector3.normalize(knn, knn);
 
 		Quaternion.fromAxisAndAngle(q0, e, diffAngle);
@@ -1013,6 +1050,5 @@ export default class Myriahedral {
 		v.x = rp0[0] + vref.x;
 		v.y = rp0[1] + vref.y;
 		v.z = rp0[2] + vref.z;
-
 	}
 }

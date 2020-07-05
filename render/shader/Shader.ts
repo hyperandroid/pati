@@ -57,6 +57,10 @@ export class ModelMatrixInstancingInfo {
 		this.instanceCount = instanceCount;
 	}
 
+	dispose(gl: WebGLRenderingContext) {
+		gl.deleteBuffer(this.buffer);
+	}
+
 	draw(gl: WebGL2RenderingContext, vertexCount: number, instanceCount: number) {
 
 		instanceCount = Math.min(instanceCount, this.instanceCount);

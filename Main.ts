@@ -10,12 +10,12 @@ new Loader().addImage([
 	"assets/earth.jpg",
 	"assets/moon.jpg",
 	"assets/jupiter.jpg",
-	"assets/cubemap0/back.jpg",
-	"assets/cubemap0/bottom.jpg",
-	"assets/cubemap0/front.jpg",
-	"assets/cubemap0/left.jpg",
-	"assets/cubemap0/right.jpg",
-	"assets/cubemap0/top.jpg",
+	"assets/cubemap3/back.png",
+	"assets/cubemap3/bottom.png",
+	"assets/cubemap3/front.png",
+	"assets/cubemap3/left.png",
+	"assets/cubemap3/right.png",
+	"assets/cubemap3/top.png",
 ]).load((l: Loader) => {
 
 	const e = new Engine(window.innerWidth, window.innerHeight);
@@ -52,7 +52,7 @@ new Loader().addImage([
 	}));
 
 	e.addTexture("cubemap", Texture.initializeCubeMap(gl,
-		l.getImagesWith(["left.jpg", "right.jpg", "top.jpg", "bottom.jpg", "back.jpg", "front.jpg"])));
+		l.getImagesWith(["left.png", "right.png", "top.png", "bottom.png", "back.png", "front.png"])));
 
 	e.init();
 

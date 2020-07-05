@@ -38,6 +38,18 @@ export default class Mesh implements RenderComponent {
 
 	}
 
+	dispose(gl: WebGL2RenderingContext) {
+		this.material.dispose();
+
+		gl.deleteVertexArray(this.shaderInfo.vao);
+		gl.deleteBuffer(this.shaderInfo.geometryBuffer);
+		gl.deleteBuffer(this.shaderInfo.indexBuffer);
+		gl.deleteBuffer(this.shaderInfo.normalBuffer);
+		gl.deleteBuffer(this.shaderInfo.uvBuffer);
+
+		this.shaderInfo.instanceBuffer.dispose(gl);
+	}
+
 	/**
 	 * define a mesh from vertices data, and optionally, vertices indexes.
 	 *
