@@ -18,7 +18,8 @@ export enum GraticuleType {
 export interface GraticuleParams {
   type: GraticuleType;
   parallels?: number;
-  uvOffset?: [number, number],
+  uvOffset?: [number, number];
+  name?: string;
 }
 
 export class Graticule {

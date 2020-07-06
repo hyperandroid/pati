@@ -544,7 +544,7 @@ export default class Myriahedral {
 		});
 
 		// check for extreme uv offsets.
-		this.facesInfo.forEach( (fi,i) => {
+		this.facesInfo.forEach( fi => {
 
 			const o0 = fi.vertices[0].index*2;
 			const u0 = uv[o0];
@@ -850,6 +850,7 @@ export default class Myriahedral {
 		this.edges.forEach(e => {
 			e.faceIndices[0] = faceRemap.get(e.faceIndices[0]);
 			e.faceIndices[1] = faceRemap.get(e.faceIndices[1]);
+
 		});
 
 		this.vertex = newVertices;
@@ -950,7 +951,6 @@ export default class Myriahedral {
 		// not the same vertices indices. Graticule uses an ad-hoc triangle pairing process,
 		// and this might not work as expected. Check for diff points.
 		if (fold.commonAxisVertices.length !== 2) {
-
 			fold.commonAxisVertices = fi0.vertices.filter(v => {
 				return fi1.vertices.find(v0 => v0.equals(v));
 			});
@@ -958,9 +958,9 @@ export default class Myriahedral {
 	}
 
 	private unfoldProcess(scale: number) {
-		let t = Date.now();
+		// let t = Date.now();
 		this.roots.forEach(f => this.unfoldImpl(f, scale));
-		t = Date.now() - t;
+		// t = Date.now() - t;
 		// console.log(`unfold vertices took ${t}ms.`);
 	}
 

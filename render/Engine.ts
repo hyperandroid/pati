@@ -75,6 +75,7 @@ export default class Engine {
 	cuts = false;
 	folds = false;
 	outline = false;
+	action = 0;
 
 	constructor(w: number, h: number) {
 		Platform.initialize(w, h);
@@ -135,7 +136,7 @@ export default class Engine {
 
 		this.buildGraticules();
 		this.buildMyriahedrons();
-		this.nextGraticule();
+		this.selectGraticule(0);
 
 		this.currentCamera.setup(
 			[-116.15988159179688, 6.677720546722412, -5.870321273803711],
@@ -155,7 +156,7 @@ export default class Engine {
 			ambient: [.1, .1, .1],
 			diffuse: [1,1,1],
 			specular: [1, 1, 1],
-			position: [0, 0, 3]
+			position: [0, 0, -3]
 		});
 
 		this.initializeGraphics();
@@ -380,7 +381,7 @@ export default class Engine {
 		// this.mesh["cube"].renderInstanced(this, this.matrices, N*N);
 
 		const light = this.light['point'] as PointLight;
-		light.setPosition(100,50,40);
+		light.setPosition(-100,50,40);
 
 		const cg = this.currentGraticule;
 		cg.mesh.euler(this.exy, this.exz, this.eyz);
@@ -545,20 +546,22 @@ export default class Engine {
 				break;
 
 			case '1':
-					this.unfoldScale += 1;
-					if (this.unfoldScale > 90) {
-						this.unfoldScale = 90;
-					} else {
-						this.unfoldImpl();
-					}
+				this.action++;
+				this.unfoldScale += 1;
+				if (this.unfoldScale > 90) {
+					this.unfoldScale = 90;
+				} else {
+					this.unfoldImpl();
+				}
 				break;
 			case '2':
-					this.unfoldScale -= 1;
-					if (this.unfoldScale < 0) {
-						this.unfoldScale = 0;
-					} else {
-						this.unfoldImpl();
-					}
+				this.action++;
+				this.unfoldScale -= 1;
+				if (this.unfoldScale < 0) {
+					this.unfoldScale = 0;
+				} else {
+					this.unfoldImpl();
+				}
 				break;
 
 			case '0':
@@ -610,6 +613,7 @@ export default class Engine {
 
 			case 'f':
 				if (!down) {
+					this.action++;
 					this.fold(() => {
 						console.log('folded');
 					});
@@ -617,12 +621,14 @@ export default class Engine {
 				break;
 			case 'u':
 				if (!down) {
+					this.action++;
 					this.unfold(() => {
 						console.log('unfolded');
 					});
 				}
 				break;
 			case 'g':
+				this.action++;
 				if (!down) {
 					this.nextGraticule();
 				}
@@ -631,26 +637,34 @@ export default class Engine {
 	}
 
 	private graticules: GraticuleData[] = [];
-	private currentGraticuleIndex = 0;
+	private currentGraticuleIndex = -1;
 	private currentGraticule: GraticuleData;
 
 	private buildGraticules() {
+
+		this.buildMenuHeader('Graticules');
+
 		[
 			{
 				type: GraticuleType.Cylindrical,
 				parallels: 25,
+				name: 'Cylindrical',
 			},
 			{
 				type: GraticuleType.Conical,
+				name: 'Conical',
 			},
 			{
 				type: GraticuleType.Azimutal,
+				name: 'Azimutal',
 			},
 			{
 				type: GraticuleType.AzimutalTwoHemispheres,
+				name: 'Azimutal two hemispheres',
 			},
 			{
 				type: GraticuleType.Polyconical,
+				name: 'Polyconical',
 			},
 		].forEach(p => {
 			this.buildGraticule(p);
@@ -658,10 +672,6 @@ export default class Engine {
 	}
 
 	private buildGraticule(p: GraticuleParams) {
-
-		// const m2 = new Myriahedral().graticule(p);
-		// const data2 = m2.getMeshData();
-		// this.buildFoldsCutsLines(data2, true, 20, 20.5);
 
 		const myriahedral = new Myriahedral().graticule(p);
 		const data = myriahedral.getMeshData();
@@ -680,24 +690,70 @@ export default class Engine {
 		};
 
 		this.buildFoldsCutsLines(data,30, 30.5, gr);
+		this.buildMenuEntry(p.name, this.graticules.length);
+
 		this.graticules.push(gr);
 	}
 
+	private buildMenuEntry(titleText: string, index: number) {
+		const menu = document.getElementById("menu");
+		const menuItem = document.createElement('div');
+		const title = document.createElement('span');
+		title.innerText = titleText;
+
+		title.style.cursor = 'pointer';
+		title.style.color = 'white';
+		title.style.fontSize = '0.9em';
+		title.style.paddingLeft = '15px';
+
+		title.addEventListener('click', () => {
+			this.selectGraticule(index);
+		});
+
+		menuItem.appendChild(title);
+		menu.appendChild(menuItem);
+	}
+
+	private buildMenuHeader(titleText: string) {
+		const menu = document.getElementById("menu");
+		const menuItem = document.createElement('div');
+
+		const br0 = document.createElement('br');
+		const br1 = document.createElement('br');
+		const title = document.createElement('span');
+		title.innerHTML = `${titleText}`;
+
+		title.style.fontSize = '1.1em';
+		title.style.color = 'white';
+
+		menuItem.appendChild(br0);
+		menuItem.appendChild(title);
+		menuItem.appendChild(br1);
+		menu.appendChild(menuItem);
+	}
+
 	private buildMyriahedrons() {
-		[
-			TetrahedronGeometry,
-			CubeGeometry,
-			OctahedronGeometry,
-			IcosahedronGeometry
-		].forEach( g => {
+
+		this.buildMenuHeader('Solids');
+
+		const solids: [string, MyriahedronGeometry][] = [
+			['Tetrahedron', TetrahedronGeometry],
+			['Cube', CubeGeometry],
+			['Octahedron', OctahedronGeometry],
+			['Icosahedron', IcosahedronGeometry]
+		];
+
+		solids.forEach( g => {
 			this.buildMyriahedron(g);
 		});
 	}
 
-	private buildMyriahedron(geometry: MyriahedronGeometry) {
+	private buildMyriahedron(geometry: [string, MyriahedronGeometry]) {
+
+		this.buildMenuEntry(geometry[0], this.graticules.length);
 
 		const myriahedral = new Myriahedral().myriahedron({
-			geometry,
+			geometry: geometry[1],
 			subdivisions: 5,
 			unfold: true,
 			normalize: true,
@@ -720,55 +776,65 @@ export default class Engine {
 	}
 
 	private nextGraticule() {
+		this.selectGraticule(this.currentGraticuleIndex+1);
+	}
 
-		this.fold(() => {
+	private selectGraticule(i: number) {
+		if (i!==this.currentGraticuleIndex) {
+			this.currentGraticuleIndex = i;
+			this.fold(() => {
 
-			const graticule = this.graticules[this.currentGraticuleIndex];
-			this.currentGraticule = graticule;
-			this.currentGraticuleIndex = (this.currentGraticuleIndex + 1) % this.graticules.length;
+				const graticule = this.graticules[this.currentGraticuleIndex];
+				this.currentGraticule = graticule;
 
-			this.myriahedral = graticule.myriahedral;
+				this.myriahedral = graticule.myriahedral;
 
-			this.unfold(() => {
-				console.log('unfolded');
+				this.unfold(() => {
+					console.log('unfolded');
+				});
+
 			});
 
-		});
+		}
 	}
 
 	private unfold(onUnfoldFinished: () => void) {
 		if (this.myriahedral && this.unfoldScale<MaxUnfoldScale) {
-			requestAnimationFrame(this.unfoldAnimation.bind(this, onUnfoldFinished));
+			requestAnimationFrame(this.unfoldAnimation.bind(this, onUnfoldFinished, this.action));
 		} else {
 			onUnfoldFinished();
 		}
 	}
 
-	private unfoldAnimation(onUnfoldFinished: () => void) {
-		this.unfoldScale++;
-		this.unfoldImpl();
-		if (this.unfoldScale < MaxUnfoldScale) {
-			requestAnimationFrame(this.unfoldAnimation.bind(this, onUnfoldFinished));
-		} else {
-			onUnfoldFinished();
+	private unfoldAnimation(onUnfoldFinished: () => void, gi: number) {
+		if (gi===this.action) {
+			this.unfoldScale++;
+			this.unfoldImpl();
+			if (this.unfoldScale < MaxUnfoldScale) {
+				requestAnimationFrame(this.unfoldAnimation.bind(this, onUnfoldFinished, gi));
+			} else {
+				onUnfoldFinished();
+			}
 		}
 	}
 
 	private fold(onFoldFinished: () => void) {
 		if (this.myriahedral && this.unfoldScale>0) {
-			requestAnimationFrame(this.foldAnimation.bind(this, onFoldFinished));
+			requestAnimationFrame(this.foldAnimation.bind(this, onFoldFinished, this.action));
 		} else {
 			requestAnimationFrame(onFoldFinished);
 		}
 	}
 
-	private foldAnimation(onFoldFinished: () => void) {
-		this.unfoldScale--;
-		this.unfoldImpl();
-		if (this.unfoldScale > 0) {
-			requestAnimationFrame(this.foldAnimation.bind(this, onFoldFinished));
-		} else {
-			requestAnimationFrame(onFoldFinished);
+	private foldAnimation(onFoldFinished: () => void, gi: number) {
+		if (this.action===gi) {
+			this.unfoldScale--;
+			this.unfoldImpl();
+			if (this.unfoldScale > 0) {
+				requestAnimationFrame(this.foldAnimation.bind(this, onFoldFinished, gi));
+			} else {
+				requestAnimationFrame(onFoldFinished);
+			}
 		}
 	}
 

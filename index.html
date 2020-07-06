@@ -7,6 +7,29 @@
         body {
             margin: 0;
             padding: 0;
+            font-family: sans-serif;
+        }
+
+        .menu {
+            position: absolute;
+            background: rgba(0,0,0,.8);
+            width: 200px;
+            height: 100%;
+            padding: 5px;
+        }
+
+        .bottom {
+            position: absolute;
+            bottom: 0;
+            font-size: .9em;
+            padding-bottom: 10px;
+            padding-top: 10px;
+            color: #a1a10e;
+        }
+
+        .enhanced {
+            font-family: monospace;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -17,5 +40,16 @@
     // spector.displayUI();
 </script>
 <script src="build/all.js"></script>
+<div id="menu" class="menu">
+    <div class="bottom">
+        <div>Camera: <span class="enhanced">w/s/a/d</span> tilt: <span class="enhanced">q/z</span></div>
+        <div>Next graticule: <span class="enhanced">g</span></div>
+        <div>fold/unfold step: <span class="enhanced">1/2</span></div>
+        <div>show geometry: <span class="enhanced">3</span></div>
+        <div>euler rotation: <span class="enhanced">i/p o/k j/l</span></div>
+        <div>fold animation: <span class="enhanced">f</span></div>
+        <div>unfold animation: <span class="enhanced">u</span></div>
+    </div>
+</div>
 </body>
 </html>
