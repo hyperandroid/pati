@@ -272,6 +272,7 @@ export default class Myriahedral {
 	foldsMST: FacesEdge[];
 	folds: MSTNode[];
 	cuts: Edge[];
+	miryahedronGeometry: MyriahedronGeometry;
 
 	constructor() {
 
@@ -312,6 +313,8 @@ export default class Myriahedral {
 		if (p.unfold === undefined) {
 			p.unfold = true;
 		}
+
+		this.miryahedronGeometry = p.geometry;
 
 		this.subdivisions = p.subdivisions ?? 5;
 
@@ -869,6 +872,13 @@ export default class Myriahedral {
 
 		this.uv = this.calculateUV();
 		this.setFoldsOrientations();
+
+		console.log(`Debug info:`);
+		if (this.miryahedronGeometry) {
+			console.log(`  Original: ${this.miryahedronGeometry.vertices.length}-${this.miryahedronGeometry.faces.length}-${this.miryahedronGeometry.edges.length}`);
+		}
+		console.log(`  Geometry: ${this.originalVertices.length}-${this.facesInfo.size}`);
+		console.log(`  Folds/Cuts: ${this.foldsMST.length}/${this.cuts?.length ?? 0}`);
 	}
 
 	private static getCenterPoint(v: Vertex[], normalize: boolean): number[] {

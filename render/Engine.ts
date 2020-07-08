@@ -647,7 +647,7 @@ export default class Engine {
 		[
 			{
 				type: GraticuleType.Cylindrical,
-				parallels: 25,
+				parallels: 11,
 				name: 'Cylindrical',
 			},
 			{
