@@ -6,6 +6,7 @@ const m = new Myriahedral().myriahedron({
 	subdivisions: 4,
 	unfold: true,
 	normalize: true,
+	name: "test",
 });
 
 const data = m.getMeshData();

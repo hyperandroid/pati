@@ -22,7 +22,7 @@ import {
 	OctahedronGeometry,
 	TetrahedronGeometry
 } from "./geometry/Solids";
-import {GraticuleParams, GraticuleType} from "./geometry/Graticule";
+import {GraticuleParams, Graticules} from "./geometry/Graticule";
 
 const MaxUnfoldScale = 90;
 const N = 64;
@@ -644,29 +644,7 @@ export default class Engine {
 
 		this.buildMenuHeader('Graticules');
 
-		[
-			{
-				type: GraticuleType.Cylindrical,
-				parallels: 25,
-				name: 'Cylindrical',
-			},
-			{
-				type: GraticuleType.Conical,
-				name: 'Conical',
-			},
-			{
-				type: GraticuleType.Azimutal,
-				name: 'Azimutal',
-			},
-			{
-				type: GraticuleType.AzimutalTwoHemispheres,
-				name: 'Azimutal two hemispheres',
-			},
-			{
-				type: GraticuleType.Polyconical,
-				name: 'Polyconical',
-			},
-		].forEach(p => {
+		Graticules.forEach(p => {
 			this.buildGraticule(p);
 		});
 	}
@@ -681,6 +659,7 @@ export default class Engine {
 			...data,
 			material: Material.TextureNoLight(this.getTexture("earth"), .6),
 			cullDisabled: true,
+
 		}, 1).setScale(30);
 
 		const gr = {
@@ -753,6 +732,7 @@ export default class Engine {
 		this.buildMenuEntry(geometry[0], this.graticules.length);
 
 		const myriahedral = new Myriahedral().myriahedron({
+			name: geometry[1].name,
 			geometry: geometry[1],
 			subdivisions: 5,
 			unfold: true,

@@ -3,12 +3,14 @@ export type FaceType = number[];
 export type EdgeType = number[];
 
 export interface MyriahedronGeometry {
+	name: string;
 	vertices: VertexType[];
 	edges?: EdgeType[];
 	faces: FaceType[];
 }
 
 export const OctahedronGeometry: MyriahedronGeometry = {
+	name: 'octahedron',
 	vertices: [
 		[0, 1, 0],
 		[1, 0, 0],
@@ -31,6 +33,7 @@ export const OctahedronGeometry: MyriahedronGeometry = {
 
 export const TetrahedronGeometry: MyriahedronGeometry = {
 
+	name: 'tetrahedron',
 	vertices: [
 		[0.0, -1.0, 2.0],
 		[1.73205081, -1.0, -1.0],
@@ -47,6 +50,8 @@ export const TetrahedronGeometry: MyriahedronGeometry = {
 };
 
 export const CubeGeometry: MyriahedronGeometry = {
+
+	name: 'cube',
 	vertices: [
 		[0.5, -0.5, -0.5],
 		[-0.5, -0.5, -0.5],
@@ -78,6 +83,7 @@ export const CubeGeometry: MyriahedronGeometry = {
 }
 
 export const IcosahedronGeometry: MyriahedronGeometry = {
+	name: 'icosahedron',
 	vertices: [
 		[-0.26286500, 0, 0.42532500],
 		[0.26286500, 0, 0.42532500],

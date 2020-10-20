@@ -247,6 +247,7 @@ const knnP0 = Vector3.create();
 const q0 = Quaternion.create();
 
 export interface MyriahedronParams {
+	name: string;
 	geometry: MyriahedronGeometry;
 	subdivisions?: number;
 	unfold?: boolean,		// default true
@@ -272,12 +273,17 @@ export default class Myriahedral {
 	foldsMST: FacesEdge[];
 	folds: MSTNode[];
 	cuts: Edge[];
+	miryahedronGeometry: MyriahedronGeometry;
+
+	name: string;
 
 	constructor() {
 
 	}
 
 	graticule(p: GraticuleParams) {
+
+		this.name = p.name;
 
 		const gr = new Graticule().build(p);
 
@@ -309,9 +315,13 @@ export default class Myriahedral {
 
 	myriahedron(p: MyriahedronParams): Myriahedral {
 
+		this.name = p.name;
+
 		if (p.unfold === undefined) {
 			p.unfold = true;
 		}
+
+		this.miryahedronGeometry = p.geometry;
 
 		this.subdivisions = p.subdivisions ?? 5;
 
@@ -703,6 +713,10 @@ export default class Myriahedral {
 			return e.parent === null
 		});
 
+		if (this.roots.length>1) {
+			console.warn(`${this.name} more than one root: ${this.roots.length}`);
+		}
+
 		const root = this.roots[0];
 
 		const processed = new Set<number>();
@@ -869,6 +883,13 @@ export default class Myriahedral {
 
 		this.uv = this.calculateUV();
 		this.setFoldsOrientations();
+
+		console.log(`Debug info:`);
+		if (this.miryahedronGeometry) {
+			console.log(`  Original: ${this.miryahedronGeometry.vertices.length}-${this.miryahedronGeometry.faces.length}-${this.miryahedronGeometry.edges.length}`);
+		}
+		console.log(`  Geometry: ${this.originalVertices.length}-${this.facesInfo.size}`);
+		console.log(`  Folds/Cuts: ${this.foldsMST.length}/${this.cuts?.length ?? 0}`);
 	}
 
 	private static getCenterPoint(v: Vertex[], normalize: boolean): number[] {

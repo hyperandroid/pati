@@ -12,7 +12,8 @@ export enum GraticuleType {
   Conical,
   Azimutal,
   AzimutalTwoHemispheres,
-  Polyconical
+  Polyconical,
+  Strip,
 }
 
 export interface GraticuleParams {
@@ -21,6 +22,35 @@ export interface GraticuleParams {
   uvOffset?: [number, number];
   name?: string;
 }
+
+export const Graticules = [
+  {
+    type: GraticuleType.Cylindrical,
+    parallels: 11,
+    name: 'Cylindrical',
+  },
+  {
+    type: GraticuleType.Conical,
+    name: 'Conical',
+  },
+  {
+    type: GraticuleType.Azimutal,
+    name: 'Azimutal',
+  },
+  {
+    type: GraticuleType.AzimutalTwoHemispheres,
+    name: 'Azimutal two hemispheres',
+  },
+  {
+    type: GraticuleType.Polyconical,
+    name: 'Polyconical',
+  },
+  {
+    type: GraticuleType.Strip,
+    name: 'Strip',
+    parallels: 14,
+  }
+];
 
 export class Graticule {
 
@@ -62,6 +92,9 @@ export class Graticule {
       case GraticuleType.Polyconical:
         this.connectGraticulePolyconical();
         break;
+      case GraticuleType.Strip:
+        this.connectStrip();
+        break;
       default:
         throw new Error(`unknown graticule type: ${t}`);
     }
@@ -86,22 +119,56 @@ export class Graticule {
 
     this.startFoldsConnections(row, col);
 
+    // horizontal connection
     for (let j = 0; j <= this.parallels; j++) {
       this.connectQuadByDirection(row, col-j, QuadDirection.Left);
       this.connectQuadByDirection(row, col+j, QuadDirection.Right);
     }
 
+    // vertical connections (up)
     for (let i = 0; i < row; i++) {
       for (let j = 0; j < this.parallels * 2; j++) {
         this.connectQuadByDirection(row - i, j, QuadDirection.Top);
       }
     }
 
+    // vertical connections (down)
     const t1 = this.parallels - row;
     for (let i = 0; i < t1; i++) {
       for (let j = 0; j < this.parallels * 2; j++) {
         this.connectQuadByDirection( row + i, j, QuadDirection.Down);
       }
+    }
+
+    this.root.parent = null;
+  }
+
+  private connectStrip() {
+
+    const row = 1;
+    const col = 0;
+
+    this.startFoldsConnections(row, col);
+
+    // lines
+    for(let i = row; i < this.parallels-1; i++) {
+
+      if ((i % 2) === 1) {
+        for (let j = 0; j < this.parallels * 2; j++) {
+          this.connectQuadByDirection(i, j, QuadDirection.Right);
+        }
+        this.connectQuadByDirection(i, this.parallels * 2 - 1, QuadDirection.Down);
+      } else {
+        for (let j = this.parallels * 2 - 1; j > 0; j--) {
+          this.connectQuadByDirection(i, j, QuadDirection.Left);
+        }
+        this.connectQuadByDirection(i, 0, QuadDirection.Down);
+      }
+    }
+
+    for (let j = 0; j < this.parallels * 2; j++) {
+      this.connectQuadByDirection( row, j, QuadDirection.Top);
+      this.connectQuadByDirection( this.parallels-2, j, QuadDirection.Down);
     }
 
     this.root.parent = null;
