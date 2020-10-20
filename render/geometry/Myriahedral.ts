@@ -274,7 +274,6 @@ export default class Myriahedral {
 	folds: MSTNode[];
 	cuts: Edge[];
 	miryahedronGeometry: MyriahedronGeometry;
-
 	name: string;
 
 	constructor() {
